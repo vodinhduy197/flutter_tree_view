@@ -42,11 +42,11 @@ class TreeController<T> with ChangeNotifier {
 
   /// Rebuilds the current tree.
   ///
-  /// Call this method whenever the tree state changes in any way (i.e child 
-  /// added/removed, expansion changed, item reordered, etc...). 
+  /// Call this method whenever the tree state changes in any way (i.e child
+  /// added/removed, expansion changed, item reordered, etc...).
   ///
-  /// This method will traverse the tree gattering the new information and 
-  /// storing it as a flat tree in [nodes]. Then it calls [notifyListeners] so 
+  /// This method will traverse the tree gattering the new information and
+  /// storing it as a flat tree in [nodes]. Then it calls [notifyListeners] so
   /// consumers can rebuild their ui.
   void rebuild() {
     final List<TreeNode<T>> flatTree = buildFlatTree<T>(dataSource);
