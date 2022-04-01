@@ -101,7 +101,7 @@ class SimpleTreeDataSource<T> extends TreeDataSource<T> {
 /// since a node could be expanded/collapsed but have no children, so, there's
 /// no need for traversing the tree again, a simple `setState` is enough.
 class TreeNode<T> {
-  /// Creates an instance of [TreeNode].
+  /// Creates a [TreeNode].
   const TreeNode({
     required this.item,
     required this.index,

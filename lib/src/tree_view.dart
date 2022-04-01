@@ -20,7 +20,7 @@ typedef TreeNodeWidgetBuilder<T> = Widget Function(
 /// See also:
 ///
 ///  * [SliverTree], which could be used to build more sophisticated scrolling
-///    experiences with [customScrollView].
+///    experiences with [CustomScrollView].
 class TreeView<T> extends StatefulWidget {
   /// Creates a [TreeView].
   ///
@@ -128,7 +128,9 @@ class TreeView<T> extends StatefulWidget {
   ///
   /// Typical usage is as follows:
   ///
+  /// ```dart
   /// TreeViewState treeState = TreeView.of<T>(context);
+  /// ```
   ///
   /// See also:
   ///
@@ -143,7 +145,7 @@ class TreeView<T> extends StatefulWidget {
             'TreeView.of() called with a context that does not contain a TreeView.',
           ),
           ErrorDescription(
-            'No TreeView ancestor could be found starting from the context that was passed to TreeView.of().',
+            'No TreeView ancestor could be found starting from the context that was passed to TreeView.of<T>().',
           ),
           ErrorHint(
             'This can happen when the context provided is from the same StatefulWidget that '
@@ -216,7 +218,7 @@ class TreeViewState<T> extends State<TreeView<T>> {
 ///  * [TreeView], which already covers some boilerplate for building a nice
 ///    tree view.
 class SliverTree<T> extends StatefulWidget {
-  /// Creates a new [SliverTree].
+  /// Creates a [SliverTree].
   const SliverTree({
     Key? key,
     required this.controller,
@@ -270,11 +272,13 @@ class SliverTree<T> extends StatefulWidget {
   /// encloses the given context.
   ///
   /// If there is no [SliverTree] ancestor widget in the widget tree at the
-  /// given context, then an assert will fail to warn developers.
+  /// given context, then this will throw in debug mode.
   ///
   /// Typical usage is as follows:
   ///
+  /// ```dart
   /// SliverTreeState treeState = SliverTree.of<T>(context);
+  /// ```
   ///
   /// See also:
   ///

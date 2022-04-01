@@ -34,7 +34,7 @@ class TreeController<T> with ChangeNotifier {
   FlatTree<T> get nodes => _nodes;
   FlatTree<T> _nodes;
 
-  /// The lenght of the current flattened tree.
+  /// The length of the current flattened tree.
   int get treeSize => nodes.length;
 
   /// Returns the current node at [index] of the flattened tree.
@@ -71,7 +71,7 @@ class TreeController<T> with ChangeNotifier {
   ///
   /// By default, `checkChildrenBeforeRebuilding = true` will make sure the tree
   /// is only rebuilt if [item] has children. This is an optimization option for
-  /// large trees, where traversing the tree too frequently would jank the ui.
+  /// large trees, where traversing the tree too frequently would jank the UI.
   /// Set [checkChildrenBeforeRebuilding] to `false` if you want the tree to be
   /// rebuilt either way.
   void expandItem(T item, {bool checkChildrenBeforeRebuilding = true}) {
