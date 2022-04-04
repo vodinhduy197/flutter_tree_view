@@ -152,6 +152,17 @@ class TreeNode<T> {
   ///
   /// Exemple: `[root, ..., parent, this]`.
   List<TreeNode<T>> get path => [...?parent?.path, this];
+
+  @override
+  String toString() {
+    return 'TreeNode<$T>('
+        'item: $item, '
+        'index: $index, '
+        'level: $level, '
+        'isLastSibling: $isLastSibling, '
+        'parent: $parent'
+        ')';
+  }
 }
 
 /// Convenient function for traversing the tree provided by [dataSource].
