@@ -24,11 +24,11 @@ typedef TreeNodeWidgetBuilder<T> = Widget Function(
 class TreeView<T> extends StatefulWidget {
   /// Creates a [TreeView].
   ///
-  /// Take a look at [TreeNodeTile] for your [nodeBuilder].
+  /// Take a look at [TreeTile] for your [builder].
   const TreeView({
     Key? key,
     required this.controller,
-    required this.nodeBuilder,
+    required this.builder,
     this.itemExtent,
     this.prototypeItem,
     this.padding,
@@ -55,7 +55,9 @@ class TreeView<T> extends StatefulWidget {
   ///
   /// The `TreeNode<T> node` parameter contains important information about the
   /// current tree context of the particular [TreeNode.item] that it holds.
-  final TreeNodeWidgetBuilder<T> nodeBuilder;
+  ///
+  /// Checkout the [TreeTile] widget.
+  final TreeNodeWidgetBuilder<T> builder;
 
   /// {@macro flutter.widgets.scroll_view.controller}
   final ScrollController? scrollController;
@@ -196,7 +198,7 @@ class TreeViewState<T> extends State<TreeView<T>> {
           sliver: SliverTree<T>(
             key: _sliverTreeKey,
             controller: controller,
-            nodeBuilder: widget.nodeBuilder,
+            builder: widget.builder,
             itemExtent: widget.itemExtent,
             prototypeItem: widget.prototypeItem,
           ),
@@ -222,7 +224,7 @@ class SliverTree<T> extends StatefulWidget {
   const SliverTree({
     Key? key,
     required this.controller,
-    required this.nodeBuilder,
+    required this.builder,
     this.itemExtent,
     this.prototypeItem,
   })  : assert(
@@ -242,7 +244,7 @@ class SliverTree<T> extends StatefulWidget {
   ///
   /// The `TreeNode<T> node` parameter contains important information about the
   /// current tree context of the particular [TreeNode.item] that it holds.
-  final TreeNodeWidgetBuilder<T> nodeBuilder;
+  final TreeNodeWidgetBuilder<T> builder;
 
   /// {@macro flutter.widgets.list_view.itemExtent}
   final double? itemExtent;
@@ -358,7 +360,7 @@ class SliverTreeState<T> extends State<SliverTree<T>> {
   @override
   Widget build(BuildContext context) {
     final SliverChildBuilderDelegate delegate = SliverChildBuilderDelegate(
-      _nodeBuilder,
+      _builder,
       childCount: controller.treeSize,
     );
 
@@ -377,8 +379,8 @@ class SliverTreeState<T> extends State<SliverTree<T>> {
     return SliverList(delegate: delegate);
   }
 
-  Widget _nodeBuilder(BuildContext context, int index) {
+  Widget _builder(BuildContext context, int index) {
     final TreeNode<T> node = controller.nodeAt(index);
-    return widget.nodeBuilder(context, node);
+    return widget.builder(context, node);
   }
 }
