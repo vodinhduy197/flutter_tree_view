@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'tree_data_source.dart';
 
 /// Widget responsible for indenting tree nodes and painting guides (if needed).
-class IndentGuides<T> extends StatelessWidget {
-  /// Creates a [IndentGuides].
-  const IndentGuides({
+class TreeIndentation<T> extends StatelessWidget {
+  /// Creates a [TreeIndentation].
+  const TreeIndentation({
     Key? key,
     required this.node,
     required this.guide,
@@ -18,7 +18,7 @@ class IndentGuides<T> extends StatelessWidget {
   /// The tree node that should be used to paint guides for.
   final TreeNode<T> node;
 
-  /// The actual guides configuration to use when painting the guides of [node].
+  /// The actual guide configuration to use when painting the guide of [node].
   ///
   /// The [IndentGuide] class provides named constructors for easily finding all
   /// available indent guide types.
@@ -36,16 +36,16 @@ class IndentGuides<T> extends StatelessWidget {
 
   /// The height used for painting the [guide].
   ///
-  /// If [IndentGuides] is given unbounded height and [height] is null,
+  /// If [TreeIndentation] is given unbounded height and [height] is null,
   /// the painting algorithm will not work properly, specially if using a
   /// [LineGuide].
   ///
   /// Alternatively to setting a value to this property, you could make sure
-  /// that [IndentGuides] is wrapped by any sort of [ConstrainedBox] parent
+  /// that [TreeIndentation] is wrapped by any sort of [ConstrainedBox] parent
   /// that has bounded height.
   final double? height;
 
-  /// An optional widget to place inside the indent guides.
+  /// An optional widget to place inside the tree indentation.
   ///
   /// Checkout the [Align] widget to place [child] exactly where wanted.
   final Widget? child;
@@ -75,7 +75,7 @@ class IndentGuides<T> extends StatelessWidget {
   }
 }
 
-/// A [CustomPainter] responsible for painting the [IndentGuide] of [IndentGuides].
+/// A [CustomPainter] responsible for painting the [IndentGuide] of [TreeIndentation].
 ///
 /// See also:
 ///
