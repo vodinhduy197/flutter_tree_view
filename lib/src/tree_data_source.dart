@@ -96,19 +96,22 @@ class SimpleTreeDataSource<T> extends TreeDataSource<T> {
 /// The [TreeNode]s are short lived, each time the flat tree is rebuilt,
 /// a new [TreeNode] is assigned for [item], so its data is never outdated.
 ///
-/// The expansion state of [item] is not stored in [TreeNode], it must be gotten
+/// The expansion state of [item] is not stored in [TreeNode], it is gotten
 /// from [TreeDataSource.findExpansionState] in favor of optimizing rebuilds,
 /// since a node could be expanded/collapsed but have no children, so, there's
 /// no need for traversing the tree again, a simple `setState` is enough.
 class TreeNode<T> {
   /// Creates a [TreeNode].
   const TreeNode({
+    required TreeDataSource<T> dataSource,
     required this.item,
     required this.index,
     required this.level,
     required this.isLastSibling,
     this.parent,
-  });
+  }) : _dataSource = dataSource;
+
+  final TreeDataSource<T> _dataSource;
 
   /// The item attached to this node.
   final T item;
@@ -136,6 +139,13 @@ class TreeNode<T> {
 
   /// The direct parent of this node on the tree.
   final TreeNode<T>? parent;
+
+  /// Whether this node is currently expanded.
+  ///
+  /// If `true`, the children of this node are currently visible on the tree.
+  ///
+  /// This getter delegates its call to [TreeDataSource.findExpansionState].
+  bool get isExpanded => _dataSource.findExpansionState(item);
 
   /// Simple getter to check if `parent == null`.
   bool get isRoot => parent == null;
@@ -194,6 +204,7 @@ List<TreeNode<T>> buildFlatTree<T>(TreeDataSource<T> dataSource) {
       final T item = items[index];
 
       final TreeNode<T> node = TreeNode<T>(
+        dataSource: dataSource,
         item: item,
         level: level,
         index: index,
