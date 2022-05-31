@@ -33,9 +33,6 @@ abstract class TreeDataSource<T> {
   /// The [TreeController] will use this method to update the expansion state of
   /// [item] before rebuilding the tree.
   void updateExpansionState(T item, bool expanded);
-
-  /// Calls [findChildren] and checks if the returned list is **not** empty.
-  bool checkHasChildren(T item) => findChildren(item).isNotEmpty;
 }
 
 /// Callback used to find the children of [item].
@@ -177,8 +174,8 @@ class TreeNode<T> {
 
 /// Convenient function for traversing the tree provided by [dataSource].
 ///
-/// This function will build the tree in depth first order and return it as a
-/// plain dart list composed by [TreeNode] objects.
+/// This function will build the flat tree in depth first order and return it
+/// as a plain dart list composed by [TreeNode] objects.
 ///
 /// [TreeNode]s hold important information about the context of its item in the
 /// current tree.
@@ -188,15 +185,14 @@ class TreeNode<T> {
 ///
 /// This function is a top-level function, making it possible to defer the
 /// tree traversal to another [Isolate]. Though aditional work would be needed
-/// to accomplish that (i.e. subclass [TreeController] and wrap the [Treeview]
-/// in a [FutureBuilder]).
+/// to accomplish that.
 List<TreeNode<T>> buildFlatTree<T>(TreeDataSource<T> dataSource) {
   final List<TreeNode<T>> tree = <TreeNode<T>>[];
 
   void generateFlatTree({
     required List<T> items,
     required int level,
-    TreeNode<T>? parent,
+    required TreeNode<T>? parent,
   }) {
     final int lastIndex = items.length - 1;
 
@@ -216,7 +212,7 @@ List<TreeNode<T>> buildFlatTree<T>(TreeDataSource<T> dataSource) {
 
       // using `late` initialization avoids the unnecessary call to `findChildren`
       // since if the left side of the if statement falses out, the right side
-      // is not evaluated at all (as of dart 2.16).
+      // is not evaluated at all.
       late final List<T> children = dataSource.findChildren(item);
 
       if (dataSource.findExpansionState(item) && children.isNotEmpty) {
