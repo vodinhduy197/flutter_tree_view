@@ -47,51 +47,29 @@ class TreeController<T> with ChangeNotifier {
   ///
   /// This method will traverse the tree gattering the new information and
   /// storing it as a flat tree in [nodes]. Then it calls [notifyListeners] so
-  /// consumers can rebuild their ui.
+  /// consumers can rebuild their view.
   void rebuild() {
     final List<TreeNode<T>> flatTree = buildFlatTree<T>(dataSource);
     _nodes = FlatTree<T>(flatTree);
     notifyListeners();
   }
 
-  void _rebuildIfNecessary(T item, bool checkChildrenBeforeRebuilding) {
-    if (checkChildrenBeforeRebuilding) {
-      final bool hasChildren = dataSource.checkHasChildren(item);
-      // Rebuild if the item has children, otherwise notifyListeners only.
-      hasChildren ? rebuild() : notifyListeners();
-    } else {
-      rebuild();
-    }
-  }
-
   /// Updates the expansion state of [item] and rebuilds the tree.
   ///
   /// No checks are done to [item]. So, this will execute even if the item is
   /// already expanded.
-  ///
-  /// By default, `checkChildrenBeforeRebuilding = true` will make sure the tree
-  /// is only rebuilt if [item] has children. This is an optimization option for
-  /// large trees, where traversing the tree too frequently would jank the UI.
-  /// Set [checkChildrenBeforeRebuilding] to `false` if you want the tree to be
-  /// rebuilt either way.
-  void expandItem(T item, {bool checkChildrenBeforeRebuilding = true}) {
+  void expandItem(T item) {
     dataSource.updateExpansionState(item, true);
-    _rebuildIfNecessary(item, checkChildrenBeforeRebuilding);
+    rebuild();
   }
 
   /// Updates the expansion state of [item] and rebuilds the tree.
   ///
   /// No checks are done to [item]. So, this will execute even if the item is
   /// already collapsed.
-  ///
-  /// By default, `checkChildrenBeforeRebuilding = true` will make sure the tree
-  /// is only rebuilt if [item] has children. This is an optimization choice for
-  /// large trees, where traversing the tree unnecessarily would be expensive.
-  /// Set [checkChildrenBeforeRebuilding] to `false` if you want the tree to be
-  /// rebuilt either way.
-  void collapseItem(T item, {bool checkChildrenBeforeRebuilding = true}) {
+  void collapseItem(T item) {
     dataSource.updateExpansionState(item, false);
-    _rebuildIfNecessary(item, checkChildrenBeforeRebuilding);
+    rebuild();
   }
 
   /// Checks the expansion state of [item] and updates it to the opposite state.
