@@ -54,7 +54,7 @@ import 'tree_indentation.dart';
 class TreeTile<T> extends StatelessWidget {
   /// Creates a [TreeTile].
   const TreeTile({
-    Key? key,
+    super.key,
     required this.child,
     required this.node,
     this.guide = const EmptyGuide(),
@@ -68,7 +68,7 @@ class TreeTile<T> extends StatelessWidget {
     this.borderRadius,
     this.onTap,
     this.onLongPress,
-  }) : super(key: key);
+  });
 
   /// The widget to display to the side of [TreeIndentation].
   final Widget child;

@@ -13,12 +13,12 @@ part of '../indent_guide.dart';
 class ConnectingLineGuide extends AbstractLineGuide {
   /// Creates a [ConnectingLineGuide].
   const ConnectingLineGuide({
-    required double indent,
-    Color color = Colors.grey,
-    double thickness = 2.0,
+    super.indent,
+    super.color,
+    super.thickness,
     this.roundCorners = false,
     this.onlyConnectToLastChild = false,
-  }) : super(indent: indent, color: color, thickness: thickness);
+  });
 
   /// A flag that is used to paint rounded corners when connecting vertical
   /// lines to horizontal lines.

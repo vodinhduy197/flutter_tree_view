@@ -8,11 +8,11 @@ import 'tree_view.dart';
 class TreeIndentation<T> extends StatelessWidget {
   /// Creates a [TreeIndentation].
   const TreeIndentation({
-    Key? key,
+    super.key,
     required this.node,
     required this.guide,
     required this.child,
-  }) : super(key: key);
+  });
 
   /// The tree node that should be used to paint guides for.
   final TreeNode<T> node;

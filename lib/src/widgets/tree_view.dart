@@ -23,7 +23,7 @@ class TreeView<T> extends StatelessWidget {
   ///
   /// Take a look at [TreeTile] for your [builder].
   const TreeView({
-    Key? key,
+    super.key,
     required this.controller,
     required this.builder,
     this.itemExtent,
@@ -39,7 +39,7 @@ class TreeView<T> extends StatelessWidget {
     this.keyboardDismissBehavior = ScrollViewKeyboardDismissBehavior.manual,
     this.restorationId,
     this.clipBehavior = Clip.hardEdge,
-  }) : super(key: key);
+  });
 
   /// The controller responsible for updating the state of this [TreeView].
   ///
@@ -145,16 +145,15 @@ class TreeView<T> extends StatelessWidget {
 class SliverTree<T> extends StatefulWidget {
   /// Creates a [SliverTree].
   const SliverTree({
-    Key? key,
+    super.key,
     required this.controller,
     required this.builder,
     this.itemExtent,
     this.prototypeItem,
-  })  : assert(
+  }) : assert(
           itemExtent == null || prototypeItem == null,
           'You can only pass itemExtent or prototypeItem, not both',
-        ),
-        super(key: key);
+        );
 
   /// The controller responsible for updating the state of this [SliverTree].
   ///

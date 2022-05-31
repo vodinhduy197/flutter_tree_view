@@ -13,14 +13,13 @@ part of '../indent_guide.dart';
 abstract class AbstractLineGuide extends IndentGuide {
   /// Constructor with requried parameters for building the indent line guides.
   const AbstractLineGuide({
-    required double indent,
-    required this.color,
-    required this.thickness,
-  })  : assert(
+    super.indent,
+    this.color = Colors.grey,
+    this.thickness = 2.0,
+  }) : assert(
           indent >= thickness,
           '`indent` must be greater than or equal to `thickness`.',
-        ),
-        super(indent: indent);
+        );
 
   /// The color to use when painting the lines on the canvas.
   final Color color;

@@ -12,15 +12,14 @@ part of '../indent_guide.dart';
 class ScopingLineGuide extends AbstractLineGuide {
   /// Creates a [ScopingLineGuide].
   const ScopingLineGuide({
-    required double indent,
-    Color color = Colors.grey,
-    double thickness = 2.0,
+    super.indent,
+    super.color,
+    super.thickness,
     this.horizontalOffset = 1.0,
-  })  : assert(
+  }) : assert(
           0.0 <= horizontalOffset && horizontalOffset <= 1.0,
           '`horizontalOffset` must be between `0.0` and `1.0`.',
-        ),
-        super(indent: indent, color: color, thickness: thickness);
+        );
 
   /// Defines where inside indent to start painting the vertical lines.
   /// A line offset is calculated from [indent] and [horizontalOffset]

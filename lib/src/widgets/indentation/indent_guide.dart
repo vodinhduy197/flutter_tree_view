@@ -21,15 +21,15 @@ part 'lines/scoping_line_guide.dart';
 abstract class IndentGuide {
   /// Allows subclasses to have constant constructors.
   const IndentGuide({
-    required this.indent,
+    this.indent = 24.0,
   }) : assert(indent >= 0.0, 'Negative indent values are not allowed.');
 
   /// Convenient factory constructor for creating an [EmptyGuide].
-  const factory IndentGuide.empty([double indent]) = EmptyGuide;
+  const factory IndentGuide.empty({double indent}) = EmptyGuide;
 
   /// Convenient factory constructor for creating a [ScopingLineGuide].
   const factory IndentGuide.scopingLines({
-    required double indent,
+    double indent,
     Color color,
     double thickness,
     double horizontalOffset,
@@ -37,7 +37,7 @@ abstract class IndentGuide {
 
   /// Convenient factory constructor for creating a [ConnectingLineGuide].
   const factory IndentGuide.connectingLines({
-    required double indent,
+    double indent,
     Color color,
     double thickness,
     bool roundCorners,
@@ -82,7 +82,7 @@ abstract class IndentGuide {
 ///   * [AbstractLineGuide], an interface for working with line painting;
 class EmptyGuide extends IndentGuide {
   /// Creates an [EmptyGuide].
-  const EmptyGuide([double indent = 24.0]) : super(indent: indent);
+  const EmptyGuide({super.indent});
 
   @override
   Widget wrap<T>({

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 class FolderButton extends StatelessWidget {
   /// Creates a [FolderButton].
   const FolderButton({
-    Key? key,
+    super.key,
     required this.isOpen,
     this.openedIcon = const Icon(Icons.folder_open_rounded),
     this.closedIcon = const Icon(Icons.folder_rounded),
@@ -15,7 +15,7 @@ class FolderButton extends StatelessWidget {
     this.splashRadius,
     this.tooltip,
     this.onPressed,
-  }) : super(key: key);
+  });
 
   /// The icon shown when [isOpen] is set to `true`.
   ///
