@@ -1,8 +1,7 @@
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 
-import 'tree_controller.dart';
-import 'tree_data_source.dart';
+import '../foundation.dart';
 
 /// Signature for a function that creates a widget for a given node, e.g., in a
 /// tree.

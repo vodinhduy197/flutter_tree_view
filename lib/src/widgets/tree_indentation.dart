@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../tree_data_source.dart';
-import '../tree_view.dart';
+import '../foundation.dart' show TreeNode;
 import 'indentation/indent_guide.dart';
+import 'tree_view.dart';
 
 /// Widget responsible for indenting tree nodes and painting guides (if needed).
 class TreeIndentation<T> extends StatelessWidget {

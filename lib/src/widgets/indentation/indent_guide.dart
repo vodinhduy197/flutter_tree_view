@@ -2,7 +2,7 @@ import 'dart:math' as math show pi;
 
 import 'package:flutter/material.dart';
 
-import '../../tree_data_source.dart' show TreeNode;
+import '../../foundation.dart' show TreeNode;
 
 part 'lines/abstract_line_guide.dart';
 part 'lines/connecting_line_guide.dart';
