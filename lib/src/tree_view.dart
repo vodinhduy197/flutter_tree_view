@@ -6,8 +6,6 @@ import 'tree_data_source.dart';
 
 /// Signature for a function that creates a widget for a given node, e.g., in a
 /// tree.
-///
-/// Used by [SliverTree] and [TreeView] to build widgets for [TreeNode]s.
 typedef TreeNodeWidgetBuilder<T> = Widget Function(
   BuildContext context,
   TreeNode<T> node,
@@ -21,7 +19,7 @@ typedef TreeNodeWidgetBuilder<T> = Widget Function(
 ///
 ///  * [SliverTree], which could be used to build more sophisticated scrolling
 ///    experiences with [CustomScrollView].
-class TreeView<T> extends StatefulWidget {
+class TreeView<T> extends StatelessWidget {
   /// Creates a [TreeView].
   ///
   /// Take a look at [TreeTile] for your [builder].
@@ -104,103 +102,29 @@ class TreeView<T> extends StatefulWidget {
   /// {@macro flutter.widgets.list_view.prototypeItem}
   final Widget? prototypeItem;
 
-  /// The [TreeView] state from the closest instance of this class that encloses
-  /// the given context.
-  ///
-  /// If there is no [TreeView] ancestor widget in the widget tree at the given
-  /// context, then this will return null.
-  ///
-  /// Typical usage is as follows:
-  ///
-  /// TreeViewState? treeState = TreeView.maybeOf<T>(context);
-  ///
-  /// See also:
-  ///
-  ///  * [of], which will throw in debug mode if no [TreeView] ancestor widget
-  ///   is in the widget tree.
-  static TreeViewState<T>? maybeOf<T>(BuildContext context) {
-    return context.findAncestorStateOfType<TreeViewState<T>>();
-  }
-
-  /// The [TreeView] state from the closest instance of this class that encloses
-  /// the given context.
-  ///
-  /// If there is no [TreeView] ancestor widget in the widget tree at the given
-  /// context, then this will throw in debug mode.
-  ///
-  /// Typical usage is as follows:
-  ///
-  /// ```dart
-  /// TreeViewState treeState = TreeView.of<T>(context);
-  /// ```
-  ///
-  /// See also:
-  ///
-  ///  * [maybeOf], which will return null if no [TreeView] ancestor widget is
-  ///    in the widget tree.
-  static TreeViewState<T> of<T>(BuildContext context) {
-    final TreeViewState<T>? instance = maybeOf<T>(context);
-    assert(() {
-      if (instance == null) {
-        throw FlutterError.fromParts(<DiagnosticsNode>[
-          ErrorSummary(
-            'TreeView.of() called with a context that does not contain a TreeView.',
-          ),
-          ErrorDescription(
-            'No TreeView ancestor could be found starting from the context that was passed to TreeView.of<T>().',
-          ),
-          ErrorHint(
-            'This can happen when the context provided is from the same StatefulWidget that '
-            'built the TreeView.',
-          ),
-          context.describeElement('The context used was'),
-        ]);
-      }
-      return true;
-    }());
-    return instance!;
-  }
-
-  @override
-  TreeViewState<T> createState() => TreeViewState<T>();
-}
-
-/// An object that holds the state of a [TreeView].
-///
-/// The current [TreeViewState] instance can be acquired in several ways:
-///   - Using a [GlobalKey] in your [TreeView];
-///   - Calling `TreeView.of<T>(context)` (throws if not found);
-///   - Calling `TreeView.maybeOf<T>(context)` (nullable return);
-class TreeViewState<T> extends State<TreeView<T>> {
-  /// The [TreeController] that's currently attached to this tree widget.
-  TreeController<T> get controller => widget.controller;
-
-  final GlobalKey<SliverTreeState<T>> _sliverTreeKey = GlobalKey();
-
   @override
   Widget build(BuildContext context) {
     return CustomScrollView(
       scrollDirection: Axis.vertical,
       reverse: false,
-      controller: widget.scrollController,
-      primary: widget.primary,
-      physics: widget.physics,
-      shrinkWrap: widget.shrinkWrap,
-      anchor: widget.anchor,
-      cacheExtent: widget.cacheExtent,
-      dragStartBehavior: widget.dragStartBehavior,
-      keyboardDismissBehavior: widget.keyboardDismissBehavior,
-      restorationId: widget.restorationId,
-      clipBehavior: widget.clipBehavior,
+      controller: scrollController,
+      primary: primary,
+      physics: physics,
+      shrinkWrap: shrinkWrap,
+      anchor: anchor,
+      cacheExtent: cacheExtent,
+      dragStartBehavior: dragStartBehavior,
+      keyboardDismissBehavior: keyboardDismissBehavior,
+      restorationId: restorationId,
+      clipBehavior: clipBehavior,
       slivers: [
         SliverPadding(
-          padding: widget.padding ?? EdgeInsets.zero,
+          padding: padding ?? EdgeInsets.zero,
           sliver: SliverTree<T>(
-            key: _sliverTreeKey,
             controller: controller,
-            builder: widget.builder,
-            itemExtent: widget.itemExtent,
-            prototypeItem: widget.prototypeItem,
+            builder: builder,
+            itemExtent: itemExtent,
+            prototypeItem: prototypeItem,
           ),
         ),
       ],
@@ -292,14 +216,16 @@ class SliverTree<T> extends StatefulWidget {
       if (instance == null) {
         throw FlutterError.fromParts(<DiagnosticsNode>[
           ErrorSummary(
-            'SliverTree.of() called with a context that does not contain a SliverTree.',
+            'SliverTree.of() called with a context that does not contain a '
+            'SliverTree.',
           ),
           ErrorDescription(
-            'No SliverTree ancestor could be found starting from the context that was passed to SliverTree.of().',
+            'No SliverTree ancestor could be found starting from the context '
+            'that was passed to SliverTree.of().',
           ),
           ErrorHint(
-            'This can happen when the context provided is from the same StatefulWidget that '
-            'built the SliverTree.',
+            'This can happen when the context provided is from the same '
+            'StatefulWidget that built the SliverTree.',
           ),
           context.describeElement('The context used was'),
         ]);
@@ -315,7 +241,7 @@ class SliverTree<T> extends StatefulWidget {
 
 /// An object that holds the state of a [SliverTree].
 ///
-/// The current [SlivertreeState] instance can be acquired in several ways:
+/// The current [SliverTreeState] instance can be acquired in several ways:
 ///   - Using a [GlobalKey] in your [SliverTree];
 ///   - Calling `SliverTree.of<T>(context)` (throws if not found);
 ///   - Calling `SliverTree.maybeOf<T>(context)` (nullable return);
