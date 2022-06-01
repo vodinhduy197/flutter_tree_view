@@ -89,7 +89,7 @@ class TreeTile<T> extends StatelessWidget {
   ///   * [ScopingLineGuide], which paints straight lines for each level of the
   ///     tree;
   ///
-  ///   * [IndentGuide], an interface for working with any type of painting;
+  ///   * [IndentGuide], an interface for working with any type of decoration;
   ///   * [AbstractLineGuide], an interface for working with line painting;
   final IndentGuide guide;
 

@@ -26,11 +26,10 @@ class TreeIndentation<T> extends StatelessWidget {
   ///
   ///   * [EmptyGuide], which only indents nodes without painting;
   ///   * [ConnectingLineGuide], which paints lines with horizontal connections;
-  ///   * [ScopingLineGuide], which paints straight lines for each level of the
-  ///     tree;
+  ///   * [ScopingLineGuide], which paints straight lines for each level of the tree;
   ///
-  ///   * [IndentGuide], an interface for working with any type of painting;
-  ///   * [LineGuide], an interface for working with line painting;
+  ///   * [IndentGuide], an interface for working with any type of decoration;
+  ///   * [AbstractLineGuide], an interface for working with line painting;
   final IndentGuide guide;
 
   /// The widget that is going to be displayed to the side of indentation.
