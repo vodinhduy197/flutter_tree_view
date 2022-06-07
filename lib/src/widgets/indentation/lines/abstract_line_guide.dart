@@ -99,7 +99,7 @@ class _LineGuidePainter<T> extends CustomPainter {
   @override
   bool shouldRepaint(covariant _LineGuidePainter<T> oldDelegate) {
     return oldDelegate.node.level != node.level ||
-        oldDelegate.node.isLastSibling != node.isLastSibling ||
+        oldDelegate.node.hasNextSibling != node.hasNextSibling ||
         oldDelegate.guide != guide;
   }
 }

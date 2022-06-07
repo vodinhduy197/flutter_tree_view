@@ -37,15 +37,7 @@ class ConnectingLineGuide extends AbstractLineGuide {
     final Path path = Path();
     final double halfIndent = indent * 0.5;
 
-    final List<bool> skippedLevels = node.buildSkippedLevels();
-
-    for (int level = 1; level <= node.level; level++) {
-      if (skippedLevels[level]) {
-        // The ancestor at this level does not have a next sibling, so there
-        // should not be a straight line at this level.
-        continue;
-      }
-
+    for (final int level in node.levelsWithLineGuides) {
       final double x = indent * level - halfIndent;
       path
         ..moveTo(x, height)
@@ -53,7 +45,7 @@ class ConnectingLineGuide extends AbstractLineGuide {
     }
 
     // Return early since no connection should be painted.
-    final bool skipConnection = onlyConnectToLastChild && !node.isLastSibling;
+    final bool skipConnection = onlyConnectToLastChild && node.hasNextSibling;
     if (skipConnection) {
       return path;
     }
@@ -72,11 +64,11 @@ class ConnectingLineGuide extends AbstractLineGuide {
         halfHeight,
       );
     } else {
-      if (node.isLastSibling) {
+      if (node.hasNextSibling) {
+        path.moveTo(connectionStart, halfHeight);
+      } else {
         // Add half vertical line
         path.lineTo(connectionStart, halfHeight);
-      } else {
-        path.moveTo(connectionStart, halfHeight);
       }
 
       path.lineTo(connectionEnd, halfHeight);
@@ -125,49 +117,5 @@ class ConnectingLineGuide extends AbstractLineGuide {
         other.thickness == thickness &&
         other.roundCorners == roundCorners &&
         other.onlyConnectToLastChild == onlyConnectToLastChild;
-  }
-}
-
-extension _LinesX<T> on TreeNode<T> {
-  /// Returns a list with each index being a level on the path of this node.
-  /// The boolean indicates wheter that level (index) should be skipped when
-  /// painting lines.
-  ///
-  /// Index `0` is ignored when painting, so its value doesn't matter.
-  ///
-  /// Example:
-  ///
-  /// ```dart
-  /// final TreeNode firstChild = TreeNode();
-  /// final TreeNode lastChild = TreeNode();
-  /// final TreeNode root = TreeNode(
-  ///   chilren: [
-  ///     TreeNode(), // (isLastSibling = false)
-  ///     TreeNode(), // (isLastSibling = false)
-  ///     TreeNode( // (isLastSibling = true)
-  ///       children: [
-  ///         firstChild, // (isLastSibling = false)
-  ///         lastChild, // (isLastSibling = true)
-  ///       ]
-  ///     ),
-  ///   ]
-  /// )
-  ///
-  /// print(lasChild.buildSkippedLevels()); // [false, true, true]
-  /// print(firstChild.buildSkippedLevels()); // [false, true, false];
-  /// ```
-  ///
-  /// Then when painting lines, where `buildSkippedLevels()[level] == false`
-  /// a straight line will be painted, indicating there's siblings next, if
-  /// `true`, this level is going to be skipped, so no line is painted at that
-  /// level.
-  List<bool> buildSkippedLevels() {
-    // In short, a skipped level means that the ancestor at this level (index
-    // on the list) is the last child of it's parent, therefore no vertical line
-    // should be painted at that level (index) offset.
-    return [
-      ...?parent?.buildSkippedLevels(),
-      isLastSibling,
-    ];
   }
 }

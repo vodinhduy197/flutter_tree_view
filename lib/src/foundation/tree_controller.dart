@@ -1,11 +1,6 @@
-import 'dart:collection' show UnmodifiableListView;
-
 import 'package:flutter/foundation.dart' show ChangeNotifier, protected;
 
 import 'tree_node.dart';
-
-/// Simple typedef for an unmodifiable list of [TreeNode<T>].
-typedef FlatTree<T> = UnmodifiableListView<TreeNode<T>>;
 
 /// Callback definition used by [TreeController] to find the roots of the tree.
 typedef RootsFinder<T> = List<T> Function();
@@ -153,27 +148,30 @@ class TreeController<T> with ChangeNotifier {
   @protected
   List<TreeNode<T>> buildFlatTree() {
     final List<TreeNode<T>> tree = <TreeNode<T>>[];
+    int globalIndex = 0;
 
     void generateFlatTree({
-      required List<T> items,
+      required List<T> childItems,
       required int level,
-      required TreeNode<T>? parent,
+      required MutableTreeNode<T>? parent,
     }) {
-      final int lastIndex = items.length - 1;
+      final int lastIndex = childItems.length - 1;
 
       for (int index = 0; index <= lastIndex; index++) {
-        final T item = items[index];
+        final T item = childItems[index];
 
-        final TreeNode<T> node = TreeNode<T>(
+        final MutableTreeNode<T> node = MutableTreeNode<T>(
           item: item,
           isExpanded: findExpansionState(item),
           level: level,
-          index: index,
-          isLastSibling: index == lastIndex,
+          localIndex: index,
+          globalIndex: globalIndex++,
+          hasNextSibling: index < lastIndex,
           parent: parent,
         );
 
         tree.add(node);
+        parent?.addChild(node);
 
         // using `late` initialization avoids the unnecessary calls to
         //`findChildren` since if the left side of the if statement falses out,
@@ -182,7 +180,7 @@ class TreeController<T> with ChangeNotifier {
 
         if (node.isExpanded && children.isNotEmpty) {
           generateFlatTree(
-            items: children,
+            childItems: children,
             level: level + 1,
             parent: node,
           );
@@ -191,7 +189,7 @@ class TreeController<T> with ChangeNotifier {
     }
 
     generateFlatTree(
-      items: findRoots(),
+      childItems: findRoots(),
       level: 0,
       parent: null,
     );
