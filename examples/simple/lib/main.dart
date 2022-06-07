@@ -64,21 +64,21 @@ class _CustomTreeViewState extends State<CustomTreeView> {
     ),
   ];
 
-  late final _dataSource = TreeDataSource<Item>.simple(
-    findChildren: (Item? item) {
-      return item?.children ?? roots;
-    },
-    findExpansionState: (Item item) {
-      return item.isExpanded;
-    },
-    updateExpansionState: (Item item, bool expanded) {
-      item.isExpanded = expanded;
-    },
-  );
+  late final TreeController<Item> _treeController;
 
-  late final _treeController = TreeController<Item>(
-    dataSource: _dataSource,
-  );
+  @override
+  void initState() {
+    super.initState();
+
+    _treeController = TreeController<Item>(
+      findRoots: () => roots,
+      findChildren: (Item item) => item.children,
+      findExpansionState: (Item item) => item.isExpanded,
+      updateExpansionState: (Item item, bool expanded) {
+        item.isExpanded = expanded;
+      },
+    );
+  }
 
   @override
   void dispose() {
@@ -86,26 +86,24 @@ class _CustomTreeViewState extends State<CustomTreeView> {
     super.dispose();
   }
 
-  Widget _builder(BuildContext context, TreeNode<Item> node) {
-    final label = node.item.label;
-    final childCount = node.item.children.length;
-
-    return TreeTile<Item>(
-      node: node,
-      guide: const IndentGuide.connectingLines(indent: 24, thickness: 1),
-      onTap: () => _treeController.toggleItemExpansion(node.item),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Text('$label - Children: $childCount'),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return TreeView<Item>(
       controller: _treeController,
-      builder: _builder,
+      builder: (BuildContext context, TreeNode<Item> node) {
+        final String label = node.item.label;
+        final int childCount = node.item.children.length;
+
+        return TreeTile<Item>(
+          node: node,
+          guide: const IndentGuide.connectingLines(indent: 24, thickness: 1),
+          onTap: () => _treeController.toggleItemExpansion(node.item),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text('$label - Children: $childCount'),
+          ),
+        );
+      },
     );
   }
 }

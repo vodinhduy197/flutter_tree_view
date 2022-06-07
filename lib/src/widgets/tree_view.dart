@@ -44,8 +44,9 @@ class TreeView<T> extends StatelessWidget {
   /// The controller responsible for updating the state of this [TreeView].
   ///
   /// A [TreeController] can be used to dinamically update the state of the
-  /// [TreeView] when needed. Simply update your data at your [TreeDataSource]
-  /// and call [TreeController.rebuild] to update the tree and rebuild the UI.
+  /// [TreeView] when needed.
+  /// Simply update your data and call [TreeController.rebuild] which will use
+  /// its finder callbacks to update the tree and then rebuild the view.
   final TreeController<T> controller;
 
   /// Callback used to map your data into widgets.
@@ -134,14 +135,13 @@ class TreeView<T> extends StatelessWidget {
 /// A simple, fancy and highly customizable hierarchy visualization Widget.
 ///
 /// This widget is responsible for working with [TreeController] to display the
-/// tree built from [TreeDataSource].
+/// tree.
 ///
 /// Use inside [CustomScrollView].
 ///
 /// See also:
 ///
-///  * [TreeView], which already covers some boilerplate for building a nice
-///    tree view.
+///  * [TreeView], which already covers some of the [CustomScrollView] boilerplate.
 class SliverTree<T> extends StatefulWidget {
   /// Creates a [SliverTree].
   const SliverTree({
@@ -158,8 +158,9 @@ class SliverTree<T> extends StatefulWidget {
   /// The controller responsible for updating the state of this [SliverTree].
   ///
   /// A [TreeController] can be used to dinamically update the state of the
-  /// [TreeView] when needed. Simply update your data at your [TreeDataSource]
-  /// and call [TreeController.rebuild] to update the tree and rebuild the UI.
+  /// [TreeView] when needed.
+  /// Simply update your data and call [TreeController.rebuild] which will use
+  /// its finder callbacks to update the tree and then rebuild the view.
   final TreeController<T> controller;
 
   /// Callback used to map your data into widgets.
@@ -187,7 +188,7 @@ class SliverTree<T> extends StatefulWidget {
   /// See also:
   ///
   ///  * [of], which will throw in debug mode if no [SliverTree] ancestor widget
-  ///    is in the widget tree.
+  ///    exists in the widget tree.
   static SliverTreeState<T>? maybeOf<T>(BuildContext context) {
     return context.findAncestorStateOfType<SliverTreeState<T>>();
   }
@@ -206,8 +207,8 @@ class SliverTree<T> extends StatefulWidget {
   ///
   /// See also:
   ///
-  ///  * [maybeOf], which will return null if no [SliverTree] ancestor widget is
-  ///    in the widget tree.
+  ///  * [maybeOf], which will return null if no [SliverTree] ancestor widget
+  ///    exists in the widget tree.
   static SliverTreeState<T> of<T>(BuildContext context) {
     final SliverTreeState<T>? instance = maybeOf<T>(context);
     assert(() {
