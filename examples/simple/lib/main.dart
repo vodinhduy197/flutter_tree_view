@@ -71,12 +71,14 @@ class _CustomTreeViewState extends State<CustomTreeView> {
     super.initState();
 
     _treeController = TreeController<Item>(
-      findRoots: () => roots,
-      findChildren: (Item item) => item.children,
-      findExpansionState: (Item item) => item.isExpanded,
-      updateExpansionState: (Item item, bool expanded) {
-        item.isExpanded = expanded;
-      },
+      delegate: TreeDelegate<Item>.fromHandlers(
+        findRootItems: () => roots,
+        findChildren: (Item item) => item.children,
+        getExpansionState: (Item item) => item.isExpanded,
+        setExpansionState: (Item item, bool expanded) {
+          item.isExpanded = expanded;
+        },
+      ),
     );
   }
 

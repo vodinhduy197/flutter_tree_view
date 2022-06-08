@@ -1,20 +1,10 @@
 import 'package:flutter/foundation.dart' show ChangeNotifier, protected;
 
+import 'tree_delegate.dart';
 import 'tree_node.dart';
 
-/// Callback definition used by [TreeController] to find the roots of the tree.
-typedef RootsFinder<T> = List<T> Function();
-
-/// Callback definition used by [TreeController] to find the children of [item].
-typedef ChildrenFinder<T> = List<T> Function(T item);
-
-/// Callback definition used by [TreeController] to find the expansion state of [item].
-typedef ExpansionStateFinder<T> = bool Function(T item);
-
-/// Callback definition used by [TreeController] to update the expansion state of [item].
-typedef ExpansionStateUpdater<T> = void Function(T item, bool expanded);
-
-/// A simple controller for managing the nodes that compose a tree.
+/// A simple controller for managing the nodes that compose the tree provided by
+/// [TreeDelegate].
 class TreeController<T> with ChangeNotifier {
   /// Creates a [TreeController].
   ///
@@ -23,10 +13,7 @@ class TreeController<T> with ChangeNotifier {
   /// would be empty. This could be used to defer the first traversal of the
   /// tree to a more convenient moment.
   TreeController({
-    required this.findRoots,
-    required this.findChildren,
-    required this.findExpansionState,
-    required this.updateExpansionState,
+    required this.delegate,
     bool buildImediatelly = true,
   }) : _nodes = FlatTree<T>(const []) {
     if (buildImediatelly) {
@@ -34,36 +21,14 @@ class TreeController<T> with ChangeNotifier {
     }
   }
 
-  /// Called, as needed when composing the tree, to get the root items.
+  /// An interface to dynamically manage the state of the tree.
   ///
-  /// Avoid making expensive or time consuming operations in this callback, as
-  /// it is called every time the tree is rebuilt.
-  final RootsFinder<T> findRoots;
-
-  /// Called, as needed when composing the tree, to get the children of [item].
+  /// Subclass [TreeDelegate] and implement the required methods to compose the
+  /// tree and its state.
   ///
-  /// Avoid making expensive or time consuming operations in this callback, as
-  /// it is called a lot during tree flattening.
-  ///
-  /// If the children of an item needs to be dynamically loaded, consider doing
-  /// it when the user taps the expand action of a widget (e.g [TreeTile.onTap]
-  /// or [FolderButton.onPressed]), fetching the children before calling
-  /// [TreeController.expandItem].
-  final ChildrenFinder<T> findChildren;
-
-  /// Called, as needed, to get the current expansion state of [item].
-  ///
-  /// This method must return `true` if the children of [item] should be
-  /// displayed on the tree and `false` otherwise.
-  final ExpansionStateFinder<T> findExpansionState;
-
-  /// Called, as needed, to update the expansion state of [item].
-  ///
-  /// The [expanded] parameter represents the item's new state.
-  ///
-  /// This method  will be used to update the expansion state of [item] before
-  /// rebuilding the tree.
-  final ExpansionStateUpdater<T> updateExpansionState;
+  /// Checkout [TreeDelegate.fromHandlers] for a simple implementation based on
+  /// handler callbacks.
+  final TreeDelegate<T> delegate;
 
   /// All nodes that compose the current flattened tree.
   FlatTree<T> get nodes => _nodes;
@@ -95,7 +60,7 @@ class TreeController<T> with ChangeNotifier {
   /// No checks are done to [item]. So, this will execute even if the item is
   /// already expanded.
   void expandItem(T item) {
-    updateExpansionState(item, true);
+    delegate.setExpansionState(item, true);
     rebuild();
   }
 
@@ -104,35 +69,60 @@ class TreeController<T> with ChangeNotifier {
   /// No checks are done to [item]. So, this will execute even if the item is
   /// already collapsed.
   void collapseItem(T item) {
-    updateExpansionState(item, false);
+    delegate.setExpansionState(item, false);
     rebuild();
   }
 
   /// Checks the expansion state of [item] and updates it to the opposite state.
   void toggleItemExpansion(T item) {
-    findExpansionState(item) ? collapseItem(item) : expandItem(item);
-  }
-
-  void _toggleItemsCascading(T item, bool expanded) {
-    updateExpansionState(item, expanded);
-
-    final List<T> children = findChildren(item);
-
-    for (final T child in children) {
-      _toggleItemsCascading(child, expanded);
-    }
+    delegate.getExpansionState(item) ? collapseItem(item) : expandItem(item);
   }
 
   /// Updates the expansion state of [item] and all its descendants to `true`.
   void expandItemCascading(T item) {
-    _toggleItemsCascading(item, true);
+    _visitBranch(item, (T it) => delegate.setExpansionState(it, true));
     rebuild();
   }
 
   /// Updates the expansion state of [item] and all its descendants to `false`.
   void collapseItemCascading(T item) {
-    _toggleItemsCascading(item, false);
+    _visitBranch(item, (T it) => delegate.setExpansionState(it, false));
     rebuild();
+  }
+
+  /// Updates the selection state of [item] and rebuilds the tree.
+  ///
+  /// No checks are done to [item]. So, this will execute even if the item is
+  /// already selected.
+  void selectItem(T item) {
+    delegate.setSelectionState(item, true);
+    notifyListeners();
+  }
+
+  /// Updates the selection state of [item].
+  ///
+  /// No checks are done to [item]. So, this will execute even if the item is
+  /// already not selected.
+  void deselectItem(T item) {
+    delegate.setExpansionState(item, false);
+    notifyListeners();
+  }
+
+  /// Checks the selection state of [item] and updates it to the opposite state.
+  void toggleItemSelection(T item) {
+    delegate.getSelectionState(item) ? deselectItem(item) : selectItem(item);
+  }
+
+  /// Updates the selection state of [item] and all its descendants to `true`.
+  void selectItemCascading(T item) {
+    _visitBranch(item, (T it) => delegate.setSelectionState(it, true));
+    notifyListeners();
+  }
+
+  /// Updates the selection state of [item] and all its descendants to `false`.
+  void deselectItemCascading(T item) {
+    _visitBranch(item, (T it) => delegate.setSelectionState(it, false));
+    notifyListeners();
   }
 
   /// Convenient function for traversing the tree.
@@ -162,7 +152,7 @@ class TreeController<T> with ChangeNotifier {
 
         final MutableTreeNode<T> node = MutableTreeNode<T>(
           item: item,
-          isExpanded: findExpansionState(item),
+          isExpanded: delegate.getExpansionState(item),
           level: level,
           localIndex: index,
           globalIndex: globalIndex++,
@@ -176,7 +166,7 @@ class TreeController<T> with ChangeNotifier {
         // using `late` initialization avoids the unnecessary calls to
         //`findChildren` since if the left side of the if statement falses out,
         // the right side is not evaluated at all.
-        late final List<T> children = findChildren(item);
+        late final List<T> children = delegate.findChildren(item);
 
         if (node.isExpanded && children.isNotEmpty) {
           generateFlatTree(
@@ -189,12 +179,22 @@ class TreeController<T> with ChangeNotifier {
     }
 
     generateFlatTree(
-      childItems: findRoots(),
+      childItems: delegate.rootItems,
       level: 0,
       parent: null,
     );
 
     return tree;
+  }
+
+  void _visitBranch(T item, OnTraverse<T> action) {
+    action(item);
+
+    final List<T> children = delegate.findChildren(item);
+
+    for (final T child in children) {
+      _visitBranch(child, action);
+    }
   }
 
   @override
