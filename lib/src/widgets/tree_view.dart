@@ -1,3 +1,5 @@
+import 'dart:math' as math show max;
+
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 
@@ -8,6 +10,13 @@ import '../foundation.dart';
 typedef TreeNodeWidgetBuilder<T> = Widget Function(
   BuildContext context,
   TreeNode<T> node,
+);
+
+/// Signature for a function that takes a widget and an animation and applies
+/// transitions if needed.
+typedef ExpandTransitionBuilder = Widget Function(
+  Widget child,
+  Animation<double>,
 );
 
 /// A simple, fancy and highly customizable hierarchy visualization Widget.
@@ -26,6 +35,7 @@ class TreeView<T> extends StatelessWidget {
     super.key,
     required this.controller,
     required this.builder,
+    this.expandTransitionBuilder = kDefaultExpandTransitionBuilder,
     this.itemExtent,
     this.prototypeItem,
     this.padding,
@@ -56,6 +66,17 @@ class TreeView<T> extends StatelessWidget {
   ///
   /// Checkout the [TreeTile] widget.
   final TreeNodeWidgetBuilder<T> builder;
+
+  /// Callback used to add animations to the expansion of a branch.
+  ///
+  /// When an item is expanded, all its descendants that will be revealed are
+  /// wrapped by this callback.
+  ///
+  /// See also:
+  ///
+  ///   * [kDefaultExpandTransitionBuilder] that uses some standard slide and
+  ///     grow transitions.
+  final ExpandTransitionBuilder expandTransitionBuilder;
 
   /// {@macro flutter.widgets.scroll_view.controller}
   final ScrollController? scrollController;
@@ -123,6 +144,7 @@ class TreeView<T> extends StatelessWidget {
           sliver: SliverTree<T>(
             controller: controller,
             builder: builder,
+            expandTransitionBuilder: expandTransitionBuilder,
             itemExtent: itemExtent,
             prototypeItem: prototypeItem,
           ),
@@ -148,6 +170,7 @@ class SliverTree<T> extends StatefulWidget {
     super.key,
     required this.controller,
     required this.builder,
+    this.expandTransitionBuilder = kDefaultExpandTransitionBuilder,
     this.itemExtent,
     this.prototypeItem,
   }) : assert(
@@ -168,6 +191,17 @@ class SliverTree<T> extends StatefulWidget {
   /// The `TreeNode<T> node` parameter contains important information about the
   /// current tree context of the particular [TreeNode.item] that it holds.
   final TreeNodeWidgetBuilder<T> builder;
+
+  /// Callback used to add animations to the expansion of a branch.
+  ///
+  /// When an item is expanded, all its descendants that will be revealed are
+  /// wrapped by this callback.
+  ///
+  /// See also:
+  ///
+  ///   * [kDefaultExpandTransitionBuilder] that uses some standard slide and
+  ///     grow transitions.
+  final ExpandTransitionBuilder expandTransitionBuilder;
 
   /// {@macro flutter.widgets.list_view.itemExtent}
   final double? itemExtent;
@@ -244,7 +278,8 @@ class SliverTree<T> extends StatefulWidget {
 ///   - Using a [GlobalKey] in your [SliverTree];
 ///   - Calling `SliverTree.of<T>(context)` (throws if not found);
 ///   - Calling `SliverTree.maybeOf<T>(context)` (nullable return);
-class SliverTreeState<T> extends State<SliverTree<T>> {
+class SliverTreeState<T> extends State<SliverTree<T>>
+    with SingleTickerProviderStateMixin {
   /// The [TreeController] that's currently attached to this tree widget.
   TreeController<T> get controller => widget.controller;
 
@@ -252,12 +287,34 @@ class SliverTreeState<T> extends State<SliverTree<T>> {
   bool get isRtl => _isRtl;
   bool _isRtl = false;
 
-  void _rebuild() => setState(() {});
+  /// The ancestor scrollable state this sliver is attached to.
+  ScrollableState? get scrollable => Scrollable.of(context);
+
+  void _rebuild() {
+    bool shouldAnimate = false;
+
+    setState(() {
+      shouldAnimate = controller.shouldPlayExpansionAnimation;
+    });
+
+    if (shouldAnimate) {
+      _animationController
+          .forward(from: 0.0)
+          .whenComplete(controller.onDoneAnimating);
+    }
+  }
+
+  late final AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
     controller.addListener(_rebuild);
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: kThemeAnimationDuration,
+    );
   }
 
   @override
@@ -279,6 +336,7 @@ class SliverTreeState<T> extends State<SliverTree<T>> {
   @override
   void dispose() {
     controller.removeListener(_rebuild);
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -306,6 +364,52 @@ class SliverTreeState<T> extends State<SliverTree<T>> {
 
   Widget _builder(BuildContext context, int index) {
     final TreeNode<T> node = controller.nodeAt(index);
-    return widget.builder(context, node);
+
+    late final Widget child = widget.builder(context, node);
+
+    if (controller.isItemExpanding(node.item)) {
+      return widget.expandTransitionBuilder(
+        child,
+        _animationController.view,
+      );
+    }
+
+    return child;
   }
+}
+
+/// The default transition builder used by the tree view for when a branch is
+/// revealed (node is expanded so descendants animate in).
+Widget kDefaultExpandTransitionBuilder(
+  Widget child,
+  Animation<double> animation,
+) {
+  final Animation<double> sizeAnimation = CurvedAnimation(
+    curve: Curves.decelerate,
+    parent: animation,
+  );
+
+  final Animation<Offset> slideAnimation = Tween<Offset>(
+    begin: const Offset(0, -1),
+    end: Offset.zero,
+  ).animate(sizeAnimation);
+
+  return ClipRect(
+    child: SlideTransition(
+      position: slideAnimation,
+
+      /// workaround for [SizeTransition] messing with the width of [child]
+      child: AnimatedBuilder(
+        animation: sizeAnimation,
+        builder: (BuildContext context, Widget? child) {
+          return Align(
+            alignment: const AlignmentDirectional(-1.0, 0.0),
+            heightFactor: math.max(sizeAnimation.value, 0.0),
+            child: child,
+          );
+        },
+        child: child,
+      ),
+    ),
+  );
 }

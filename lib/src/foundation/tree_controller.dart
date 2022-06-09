@@ -40,6 +40,28 @@ class TreeController<T> with ChangeNotifier {
   /// Returns the current node at [index] of the flattened tree.
   TreeNode<T> nodeAt(int index) => nodes[index];
 
+  /// The list of items that are currently being expanded (animating).
+  final List<T> _expandingItems = [];
+
+  /// Wheter or not the tree should start animating an expansion.
+  ///
+  /// This means that between the last rebuild and the call to this getter a
+  /// branch was revealed.
+  bool get shouldPlayExpansionAnimation => _expandingItems.isNotEmpty;
+
+  /// Check if [item] should animate in.
+  ///
+  /// TODO: rudimentar implementation, fina a better way to hide this api.
+  ///       Or maybe use a custom way of talking to the tree view, like using
+  ///       a base class that the tree view widget must implement and add that
+  ///       class as a listener so we can access its methods.
+  bool isItemExpanding(T item) => _expandingItems.contains(item);
+
+  /// Used by the treeview to notify the controller that it is done animating.
+  void onDoneAnimating() {
+    _expandingItems.clear();
+  }
+
   /// Rebuilds the current tree.
   ///
   /// Call this method whenever the tree state changes in any way (i.e child
@@ -61,6 +83,19 @@ class TreeController<T> with ChangeNotifier {
   /// already expanded.
   void expandItem(T item) {
     delegate.setExpansionState(item, true);
+
+    // Find all descendants that are going to be revealed after this operation
+    // We don't do [delegate.traverse] directly so [item] itself doesn't animate
+    // along with its branch
+    final List<T> children = delegate.findChildren(item);
+    for (final T child in children) {
+      delegate.traverse(
+        item: child,
+        shouldContinue: delegate.getExpansionState,
+        onTraverse: _expandingItems.add,
+      );
+    }
+
     rebuild();
   }
 
@@ -80,7 +115,18 @@ class TreeController<T> with ChangeNotifier {
 
   /// Updates the expansion state of [item] and all its descendants to `true`.
   void expandItemCascading(T item) {
-    _visitBranch(item, (T it) => delegate.setExpansionState(it, true));
+    delegate.setExpansionState(item, true);
+
+    // We don't do [_visitBranch] directly so [item] itself doesn't animate
+    // along with its branch
+    final List<T> children = delegate.findChildren(item);
+    for (final T child in children) {
+      _visitBranch(child, (T it) {
+        delegate.setExpansionState(it, true);
+        _expandingItems.add(item);
+      });
+    }
+
     rebuild();
   }
 
