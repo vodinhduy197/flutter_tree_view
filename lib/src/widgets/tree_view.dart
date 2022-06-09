@@ -1,5 +1,3 @@
-import 'dart:math' as math show max;
-
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 
@@ -19,6 +17,9 @@ typedef ExpandTransitionBuilder = Widget Function(
   Animation<double>,
 );
 
+/// Signature for a function that takes a tree item and returns a [Key].
+typedef KeyFactory<T> = Key Function(T item);
+
 /// A simple, fancy and highly customizable hierarchy visualization Widget.
 ///
 /// This widget wraps a [SliverTree] in a [CustomScrollView] with some defaults.
@@ -33,9 +34,11 @@ class TreeView<T> extends StatelessWidget {
   /// Take a look at [TreeTile] for your [builder].
   const TreeView({
     super.key,
-    required this.controller,
+    this.sliverTreeKey,
+    required this.delegate,
     required this.builder,
-    this.expandTransitionBuilder = kDefaultExpandTransitionBuilder,
+    this.keyFactory,
+    this.expandTransitionBuilder = defaultExpandTransitionBuilder,
     this.itemExtent,
     this.prototypeItem,
     this.padding,
@@ -51,13 +54,27 @@ class TreeView<T> extends StatelessWidget {
     this.clipBehavior = Clip.hardEdge,
   });
 
-  /// The controller responsible for updating the state of this [TreeView].
+  /// A global key that can be used to get the current state of the underlying
+  /// [SliverTree].
+  final GlobalKey<SliverTreeState<T>>? sliverTreeKey;
+
+  /// An interface to dynamically manage the state of the tree.
   ///
-  /// A [TreeController] can be used to dinamically update the state of the
-  /// [TreeView] when needed.
-  /// Simply update your data and call [TreeController.rebuild] which will use
-  /// its finder callbacks to update the tree and then rebuild the view.
-  final TreeController<T> controller;
+  /// Subclass [TreeDelegate] and implement the required methods to compose the
+  /// tree and its state.
+  ///
+  /// Checkout [TreeDelegate.fromHandlers] for a simple implementation based on
+  /// handler callbacks.
+  final TreeDelegate<T> delegate;
+
+  /// A helper method to get a [Key] for [item].
+  ///
+  /// If null, [defaultKeyFactory] will be used to create [ValueKey<T>]'s for
+  /// each item of the tree.
+  ///
+  /// Make sure the key provided for an item is always the same and unique
+  /// among other keys, otherwise it could lead to inconsistent tree state.
+  final KeyFactory<T>? keyFactory;
 
   /// Callback used to map your data into widgets.
   ///
@@ -74,7 +91,7 @@ class TreeView<T> extends StatelessWidget {
   ///
   /// See also:
   ///
-  ///   * [kDefaultExpandTransitionBuilder] that uses some standard slide and
+  ///   * [defaultExpandTransitionBuilder] that uses some standard slide and
   ///     grow transitions.
   final ExpandTransitionBuilder expandTransitionBuilder;
 
@@ -142,7 +159,9 @@ class TreeView<T> extends StatelessWidget {
         SliverPadding(
           padding: padding ?? EdgeInsets.zero,
           sliver: SliverTree<T>(
-            controller: controller,
+            key: sliverTreeKey,
+            delegate: delegate,
+            keyFactory: keyFactory,
             builder: builder,
             expandTransitionBuilder: expandTransitionBuilder,
             itemExtent: itemExtent,
@@ -168,9 +187,10 @@ class SliverTree<T> extends StatefulWidget {
   /// Creates a [SliverTree].
   const SliverTree({
     super.key,
-    required this.controller,
+    required this.delegate,
     required this.builder,
-    this.expandTransitionBuilder = kDefaultExpandTransitionBuilder,
+    this.keyFactory,
+    this.expandTransitionBuilder = defaultExpandTransitionBuilder,
     this.itemExtent,
     this.prototypeItem,
   }) : assert(
@@ -178,13 +198,23 @@ class SliverTree<T> extends StatefulWidget {
           'You can only pass itemExtent or prototypeItem, not both',
         );
 
-  /// The controller responsible for updating the state of this [SliverTree].
+  /// An interface to dynamically manage the state of the tree.
   ///
-  /// A [TreeController] can be used to dinamically update the state of the
-  /// [TreeView] when needed.
-  /// Simply update your data and call [TreeController.rebuild] which will use
-  /// its finder callbacks to update the tree and then rebuild the view.
-  final TreeController<T> controller;
+  /// Subclass [TreeDelegate] and implement the required methods to compose the
+  /// tree and its state.
+  ///
+  /// Checkout [TreeDelegate.fromHandlers] for a simple implementation based on
+  /// handler callbacks.
+  final TreeDelegate<T> delegate;
+
+  /// A helper method to get a [Key] for [item].
+  ///
+  /// If null, [defaultKeyFactory] will be used to create [ValueKey<T>]'s for
+  /// each item of the tree.
+  ///
+  /// Make sure the key provided for an item is always the same and unique
+  /// among other keys, otherwise it could lead to inconsistent tree state.
+  final KeyFactory<T>? keyFactory;
 
   /// Callback used to map your data into widgets.
   ///
@@ -199,7 +229,7 @@ class SliverTree<T> extends StatefulWidget {
   ///
   /// See also:
   ///
-  ///   * [kDefaultExpandTransitionBuilder] that uses some standard slide and
+  ///   * [defaultExpandTransitionBuilder] that uses some standard slide and
   ///     grow transitions.
   final ExpandTransitionBuilder expandTransitionBuilder;
 
@@ -279,9 +309,17 @@ class SliverTree<T> extends StatefulWidget {
 ///   - Calling `SliverTree.of<T>(context)` (throws if not found);
 ///   - Calling `SliverTree.maybeOf<T>(context)` (nullable return);
 class SliverTreeState<T> extends State<SliverTree<T>>
-    with SingleTickerProviderStateMixin {
-  /// The [TreeController] that's currently attached to this tree widget.
-  TreeController<T> get controller => widget.controller;
+    with
+        SingleTickerProviderStateMixin<SliverTree<T>>,
+        TreeAnimationsMixin<SliverTree<T>>,
+        TreeControllerMixin<T, SliverTree<T>> {
+  @override
+  TreeDelegate<T> get delegate => widget.delegate;
+
+  late KeyFactory<T> _effectiveKeyFactory;
+
+  @override
+  Key keyFactory(T item) => _effectiveKeyFactory(item);
 
   /// Determines if [Directionality.maybeOf] is set to [TextDirection.rtl].
   bool get isRtl => _isRtl;
@@ -290,40 +328,20 @@ class SliverTreeState<T> extends State<SliverTree<T>>
   /// The ancestor scrollable state this sliver is attached to.
   ScrollableState? get scrollable => Scrollable.of(context);
 
-  void _rebuild() {
-    bool shouldAnimate = false;
-
-    setState(() {
-      shouldAnimate = controller.shouldPlayExpansionAnimation;
-    });
-
-    if (shouldAnimate) {
-      _animationController
-          .forward(from: 0.0)
-          .whenComplete(controller.onDoneAnimating);
-    }
-  }
-
-  late final AnimationController _animationController;
-
   @override
   void initState() {
     super.initState();
-    controller.addListener(_rebuild);
-
-    _animationController = AnimationController(
-      vsync: this,
-      duration: kThemeAnimationDuration,
-    );
+    _effectiveKeyFactory = widget.keyFactory ?? defaultKeyFactory;
   }
 
   @override
   void didUpdateWidget(covariant SliverTree<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.controller != controller) {
-      oldWidget.controller.removeListener(_rebuild);
-      controller.addListener(_rebuild);
+    _effectiveKeyFactory = widget.keyFactory ?? defaultKeyFactory;
+
+    if (oldWidget.delegate != delegate) {
+      rebuild();
     }
   }
 
@@ -334,17 +352,10 @@ class SliverTreeState<T> extends State<SliverTree<T>>
   }
 
   @override
-  void dispose() {
-    controller.removeListener(_rebuild);
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final SliverChildBuilderDelegate delegate = SliverChildBuilderDelegate(
       _builder,
-      childCount: controller.treeSize,
+      childCount: treeSize,
     );
 
     if (widget.itemExtent != null) {
@@ -363,24 +374,31 @@ class SliverTreeState<T> extends State<SliverTree<T>>
   }
 
   Widget _builder(BuildContext context, int index) {
-    final TreeNode<T> node = controller.nodeAt(index);
+    final TreeNode<T> node = nodeAt(index);
 
-    late final Widget child = widget.builder(context, node);
+    late Widget child = widget.builder(context, node);
 
-    if (controller.isItemExpanding(node.item)) {
-      return widget.expandTransitionBuilder(
-        child,
-        _animationController.view,
-      );
+    if (isItemExpanding(node.item)) {
+      child = widget.expandTransitionBuilder(child, animation);
     }
 
-    return child;
+    return KeyedSubtree(
+      key: keyFactory(node.item),
+      child: child,
+    );
   }
 }
 
+/// Default key factory used to get a [Key] for an [item].
+///
+/// This function creates a [ValueKey<T>] for [item].
+///
+/// When using this function, make sure [item]'s [operator ==] is consistent.
+Key defaultKeyFactory<T>(T item) => ValueKey<T>(item);
+
 /// The default transition builder used by the tree view for when a branch is
 /// revealed (node is expanded so descendants animate in).
-Widget kDefaultExpandTransitionBuilder(
+Widget defaultExpandTransitionBuilder(
   Widget child,
   Animation<double> animation,
 ) {
@@ -397,17 +415,8 @@ Widget kDefaultExpandTransitionBuilder(
   return ClipRect(
     child: SlideTransition(
       position: slideAnimation,
-
-      /// workaround for [SizeTransition] messing with the width of [child]
-      child: AnimatedBuilder(
-        animation: sizeAnimation,
-        builder: (BuildContext context, Widget? child) {
-          return Align(
-            alignment: const AlignmentDirectional(-1.0, 0.0),
-            heightFactor: math.max(sizeAnimation.value, 0.0),
-            child: child,
-          );
-        },
+      child: SizeTransition(
+        sizeFactor: sizeAnimation,
         child: child,
       ),
     ),

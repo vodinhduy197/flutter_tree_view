@@ -1,26 +1,13 @@
-import 'package:flutter/foundation.dart' show ChangeNotifier, protected;
+import 'package:flutter/widgets.dart';
 
+import 'tree_animations_mixin.dart';
 import 'tree_delegate.dart';
 import 'tree_node.dart';
 
 /// A simple controller for managing the nodes that compose the tree provided by
 /// [TreeDelegate].
-class TreeController<T> with ChangeNotifier {
-  /// Creates a [TreeController].
-  ///
-  /// If [buildImediatelly] is set to `false`, [TreeController.rebuild] must be
-  /// called to build the tree for the first time, otherwise [TreeController.nodes]
-  /// would be empty. This could be used to defer the first traversal of the
-  /// tree to a more convenient moment.
-  TreeController({
-    required this.delegate,
-    bool buildImediatelly = true,
-  }) : _nodes = FlatTree<T>(const []) {
-    if (buildImediatelly) {
-      rebuild();
-    }
-  }
-
+mixin TreeControllerMixin<T, S extends StatefulWidget>
+    on State<S>, TreeAnimationsMixin<S> {
   /// An interface to dynamically manage the state of the tree.
   ///
   /// Subclass [TreeDelegate] and implement the required methods to compose the
@@ -28,11 +15,17 @@ class TreeController<T> with ChangeNotifier {
   ///
   /// Checkout [TreeDelegate.fromHandlers] for a simple implementation based on
   /// handler callbacks.
-  final TreeDelegate<T> delegate;
+  TreeDelegate<T> get delegate;
+
+  /// A helper method to get a [Key] for [item].
+  ///
+  /// Make sure the key provided for an item is always the same and unique
+  /// among other keys, otherwise it could lead to inconsistent tree state.
+  Key keyFactory(T item);
 
   /// All nodes that compose the current flattened tree.
   FlatTree<T> get nodes => _nodes;
-  FlatTree<T> _nodes;
+  FlatTree<T> _nodes = FlatTree<T>(const []);
 
   /// The length of the current flattened tree.
   int get treeSize => nodes.length;
@@ -40,26 +33,32 @@ class TreeController<T> with ChangeNotifier {
   /// Returns the current node at [index] of the flattened tree.
   TreeNode<T> nodeAt(int index) => nodes[index];
 
-  /// The list of items that are currently being expanded (animating).
-  final List<T> _expandingItems = [];
+  @override
+  void initState() {
+    super.initState();
+    _build();
+  }
 
-  /// Wheter or not the tree should start animating an expansion.
-  ///
-  /// This means that between the last rebuild and the call to this getter a
-  /// branch was revealed.
-  bool get shouldPlayExpansionAnimation => _expandingItems.isNotEmpty;
+  @override
+  void dispose() {
+    _nodes = FlatTree<T>(const []);
+    super.dispose();
+  }
+
+  /// The list of items that are currently being expanded (animating).
+  final Map<Key, bool> _expandingItems = {};
+
+  void _markIsExpanding(T item) {
+    _expandingItems[keyFactory(item)] = true;
+  }
 
   /// Check if [item] should animate in.
-  ///
-  /// TODO: rudimentar implementation, fina a better way to hide this api.
-  ///       Or maybe use a custom way of talking to the tree view, like using
-  ///       a base class that the tree view widget must implement and add that
-  ///       class as a listener so we can access its methods.
-  bool isItemExpanding(T item) => _expandingItems.contains(item);
+  @protected
+  bool isItemExpanding(T item) => _expandingItems[keyFactory(item)] ?? false;
 
-  /// Used by the treeview to notify the controller that it is done animating.
-  void onDoneAnimating() {
-    _expandingItems.clear();
+  void _build() {
+    final List<TreeNode<T>> flatTree = buildFlatTree();
+    _nodes = FlatTree<T>(flatTree);
   }
 
   /// Rebuilds the current tree.
@@ -69,13 +68,8 @@ class TreeController<T> with ChangeNotifier {
   /// like `expandItem` and `collapseItem` already call rebuild.
   ///
   /// This method will traverse the tree gattering the new information and
-  /// storing it as a flat tree in [nodes]. Then it calls [notifyListeners] so
-  /// consumers can rebuild their view.
-  void rebuild() {
-    final List<TreeNode<T>> flatTree = buildFlatTree();
-    _nodes = FlatTree<T>(flatTree);
-    notifyListeners();
-  }
+  /// storing it as a flat tree in [nodes].
+  void rebuild() => setState(_build);
 
   /// Updates the expansion state of [item] and rebuilds the tree.
   ///
@@ -92,11 +86,12 @@ class TreeController<T> with ChangeNotifier {
       delegate.traverse(
         item: child,
         shouldContinue: delegate.getExpansionState,
-        onTraverse: _expandingItems.add,
+        onTraverse: _markIsExpanding,
       );
     }
 
     rebuild();
+    startAnimating(() => _expandingItems.clear());
   }
 
   /// Updates the expansion state of [item] and rebuilds the tree.
@@ -123,11 +118,12 @@ class TreeController<T> with ChangeNotifier {
     for (final T child in children) {
       _visitBranch(child, (T it) {
         delegate.setExpansionState(it, true);
-        _expandingItems.add(item);
+        _markIsExpanding(it);
       });
     }
 
     rebuild();
+    startAnimating(() => _expandingItems.clear());
   }
 
   /// Updates the expansion state of [item] and all its descendants to `false`.
@@ -141,8 +137,9 @@ class TreeController<T> with ChangeNotifier {
   /// No checks are done to [item]. So, this will execute even if the item is
   /// already selected.
   void selectItem(T item) {
-    delegate.setSelectionState(item, true);
-    notifyListeners();
+    setState(() {
+      delegate.setSelectionState(item, true);
+    });
   }
 
   /// Updates the selection state of [item].
@@ -150,8 +147,9 @@ class TreeController<T> with ChangeNotifier {
   /// No checks are done to [item]. So, this will execute even if the item is
   /// already not selected.
   void deselectItem(T item) {
-    delegate.setExpansionState(item, false);
-    notifyListeners();
+    setState(() {
+      delegate.setExpansionState(item, false);
+    });
   }
 
   /// Checks the selection state of [item] and updates it to the opposite state.
@@ -161,14 +159,16 @@ class TreeController<T> with ChangeNotifier {
 
   /// Updates the selection state of [item] and all its descendants to `true`.
   void selectItemCascading(T item) {
-    _visitBranch(item, (T it) => delegate.setSelectionState(it, true));
-    notifyListeners();
+    setState(() {
+      _visitBranch(item, (T it) => delegate.setSelectionState(it, true));
+    });
   }
 
   /// Updates the selection state of [item] and all its descendants to `false`.
   void deselectItemCascading(T item) {
-    _visitBranch(item, (T it) => delegate.setSelectionState(it, false));
-    notifyListeners();
+    setState(() {
+      _visitBranch(item, (T it) => delegate.setSelectionState(it, false));
+    });
   }
 
   /// Convenient function for traversing the tree.
@@ -241,11 +241,5 @@ class TreeController<T> with ChangeNotifier {
     for (final T child in children) {
       _visitBranch(child, action);
     }
-  }
-
-  @override
-  void dispose() {
-    _nodes = FlatTree<T>(const []);
-    super.dispose();
   }
 }

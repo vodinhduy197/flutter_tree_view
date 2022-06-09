@@ -20,8 +20,9 @@ class Item {
   Item({
     required this.label,
     this.children = const [],
-  });
+  }) : key = UniqueKey();
 
+  final Key key;
   final String label;
   final List<Item> children;
 
@@ -64,34 +65,27 @@ class _CustomTreeViewState extends State<CustomTreeView> {
     ),
   ];
 
-  late final TreeController<Item> _treeController;
+  late final TreeDelegate<Item> _treeDelegate;
 
   @override
   void initState() {
     super.initState();
 
-    _treeController = TreeController<Item>(
-      delegate: TreeDelegate<Item>.fromHandlers(
-        findRootItems: () => roots,
-        findChildren: (Item item) => item.children,
-        getExpansionState: (Item item) => item.isExpanded,
-        setExpansionState: (Item item, bool expanded) {
-          item.isExpanded = expanded;
-        },
-      ),
+    _treeDelegate = TreeDelegate<Item>.fromHandlers(
+      findRootItems: () => roots,
+      findChildren: (Item item) => item.children,
+      getExpansionState: (Item item) => item.isExpanded,
+      setExpansionState: (Item item, bool expanded) {
+        item.isExpanded = expanded;
+      },
     );
-  }
-
-  @override
-  void dispose() {
-    _treeController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return TreeView<Item>(
-      controller: _treeController,
+      delegate: _treeDelegate,
+      keyFactory: (Item item) => item.key,
       builder: (BuildContext context, TreeNode<Item> node) {
         final String label = node.item.label;
         final int childCount = node.item.children.length;
@@ -99,7 +93,7 @@ class _CustomTreeViewState extends State<CustomTreeView> {
         return TreeTile<Item>(
           node: node,
           guide: const IndentGuide.connectingLines(indent: 24, thickness: 1),
-          onTap: () => _treeController.toggleItemExpansion(node.item),
+          onTap: () => SliverTree.of(context).toggleItemExpansion(node.item),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: Text('$label - Children: $childCount'),
