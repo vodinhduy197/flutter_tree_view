@@ -3,36 +3,55 @@ import 'package:flutter/widgets.dart';
 /// An animation mixin used by [TreeControllerMixin] to animate the expansion
 /// state change of tree nodes.
 mixin TreeAnimationsMixin<S extends StatefulWidget>
-    on State<S>, SingleTickerProviderStateMixin<S> {
-  late final AnimationController _animationController;
+    on State<S>, TickerProviderStateMixin<S> {
+  late final AnimationController _expandAnimationController;
+  late final AnimationController _collapseAnimationController;
 
-  /// The animation used to expand/collapse nodes on the tree.
-  Animation<double> get animation => _animationController.view;
+  /// The animation used to expand nodes on the tree.
+  Animation<double> get expandAnimation => _expandAnimationController.view;
 
-  /// The duration in which to play [animation].
-  Duration get duration => const Duration(milliseconds: 300);
+  /// The animation used to collapse nodes on the tree.
+  Animation<double> get collapseAnimation => _collapseAnimationController.view;
 
-  /// Start animating forward.
-  ///
-  /// This method will play [animation] and call [whenComplete] when the
-  /// animation is done playing.
+  /// The duration in which to play [expandAnimation].
+  Duration get expandDuration => const Duration(milliseconds: 300);
+
+  /// The duration in which to play [collapseAnimation].
+  Duration get collapseDuration => const Duration(milliseconds: 150);
+
+  /// Start the expand animation.
   @protected
-  void startAnimating(VoidCallback whenComplete) {
-    _animationController.forward(from: 0.0).whenComplete(whenComplete);
+  void startExpandAnimation() => _expandAnimationController.forward(from: 0.0);
+
+  /// Start the collapse animation.
+  ///
+  /// This method will start [collapseAnimation] and call [whenComplete] when
+  /// the animation is done.
+  @protected
+  void startCollapseAnimation(VoidCallback whenComplete) {
+    _collapseAnimationController
+        .reverse(from: 1.0)
+        .whenCompleteOrCancel(whenComplete);
   }
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
+    _expandAnimationController = AnimationController(
       vsync: this,
-      duration: duration,
+      duration: expandDuration,
+    );
+
+    _collapseAnimationController = AnimationController(
+      vsync: this,
+      duration: collapseDuration,
     );
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _expandAnimationController.dispose();
+    _collapseAnimationController.dispose();
     super.dispose();
   }
 }

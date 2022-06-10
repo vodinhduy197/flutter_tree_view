@@ -45,16 +45,38 @@ mixin TreeControllerMixin<T, S extends StatefulWidget>
     super.dispose();
   }
 
-  /// The list of items that are currently being expanded (animating).
-  final Map<Key, bool> _expandingItems = {};
+  // The list of nodes that are currently animating in.
+  final Map<Key, bool> _expandingNodes = {};
+
+  // The list of nodes that are currently animating out.
+  final Map<Key, bool> _collapsingNodes = {};
 
   void _markIsExpanding(T item) {
-    _expandingItems[keyFactory(item)] = true;
+    _expandingNodes[keyFactory(item)] = true;
   }
 
-  /// Check if [item] should animate in.
+  void _markIsCollapsing(Key key) {
+    _collapsingNodes[key] = true;
+  }
+
+  /// Returns and Animation<double> based on the current state of [node].
+  ///
+  /// If [node] is neither expanding nor collapsing, [kAlwaysCompleteAnimation]
+  /// is returned.
+  ///
+  /// This method also removes [node] from its animating list.
   @protected
-  bool isItemExpanding(T item) => _expandingItems[keyFactory(item)] ?? false;
+  Animation<double> findAnimation(TreeNode<T> node) {
+    if (_expandingNodes.remove(node.key) ?? false) {
+      return expandAnimation;
+    }
+
+    if (_collapsingNodes.remove(node.key) ?? false) {
+      return collapseAnimation;
+    }
+
+    return kAlwaysCompleteAnimation;
+  }
 
   void _build() {
     final List<TreeNode<T>> flatTree = buildFlatTree();
@@ -67,120 +89,89 @@ mixin TreeControllerMixin<T, S extends StatefulWidget>
   /// added/removed, expansion changed, item reordered, etc...). Most methods
   /// like `expandItem` and `collapseItem` already call rebuild.
   ///
-  /// This method will traverse the tree gattering the new information and
-  /// storing it as a flat tree in [nodes].
+  /// This method will call [setState] traversing the tree to gatter the new
+  /// information and store it as a flat tree in [nodes].
   void rebuild() => setState(_build);
 
-  /// Updates the expansion state of [item] and rebuilds the tree.
+  /// Updates the expansion state of [node.item] and rebuilds the tree.
   ///
-  /// No checks are done to [item]. So, this will execute even if the item is
-  /// already expanded.
-  void expandItem(T item) {
-    delegate.setExpansionState(item, true);
+  /// No checks are done to [node.item]. So, this will execute even if the item
+  /// is already expanded.
+  void expand(TreeNode<T> node) {
+    // Don't call [delegate.traverse] directly with [node.item] so that the
+    // expanding node itself doesn't animate.
+    delegate.setExpansionState(node.item, true);
+    _visitVisibleDescendants(node.item, _markIsExpanding);
 
-    // Find all descendants that are going to be revealed after this operation
-    // We don't do [delegate.traverse] directly so [item] itself doesn't animate
-    // along with its branch
-    final List<T> children = delegate.findChildren(item);
-    for (final T child in children) {
-      delegate.traverse(
-        item: child,
-        shouldContinue: delegate.getExpansionState,
-        onTraverse: _markIsExpanding,
-      );
+    rebuild();
+    startExpandAnimation();
+  }
+
+  /// Updates the expansion state of [node.item] and rebuilds the tree.
+  ///
+  /// No checks are done to [node.item]. So, this will execute even if the item
+  /// is already collapsed.
+  void collapse(TreeNode<T> node) {
+    delegate.setExpansionState(node.item, false);
+    for (final TreeNode<T> descendant in node.descendants) {
+      _markIsCollapsing(descendant.key);
     }
 
+    // Make sure all nodes got their animations
+    setState(() {});
+
+    startCollapseAnimation(rebuild);
+  }
+
+  /// Checks the expansion state of [node.item] and updates it to the opposite
+  /// state.
+  void toggle(TreeNode<T> node) {
+    delegate.getExpansionState(node.item) ? collapse(node) : expand(node);
+  }
+
+  /// Updates the expansion state of [node.item] and all its descendants to
+  /// `true`.
+  void expandCascading(TreeNode<T> node) {
+    // Don't call [delegate.traverse] directly with [node.item] so that the
+    // expanding node itself doesn't animate.
+    delegate.setExpansionState(node.item, true);
+    _visitVisibleDescendants(
+      node.item,
+      (T item) {
+        delegate.setExpansionState(item, true);
+        _markIsExpanding(item);
+      },
+    );
+
     rebuild();
-    startAnimating(() => _expandingItems.clear());
+    startExpandAnimation();
   }
 
-  /// Updates the expansion state of [item] and rebuilds the tree.
-  ///
-  /// No checks are done to [item]. So, this will execute even if the item is
-  /// already collapsed.
-  void collapseItem(T item) {
-    delegate.setExpansionState(item, false);
-    rebuild();
-  }
-
-  /// Checks the expansion state of [item] and updates it to the opposite state.
-  void toggleItemExpansion(T item) {
-    delegate.getExpansionState(item) ? collapseItem(item) : expandItem(item);
-  }
-
-  /// Updates the expansion state of [item] and all its descendants to `true`.
-  void expandItemCascading(T item) {
-    delegate.setExpansionState(item, true);
-
-    // We don't do [_visitBranch] directly so [item] itself doesn't animate
-    // along with its branch
-    final List<T> children = delegate.findChildren(item);
-    for (final T child in children) {
-      _visitBranch(child, (T it) {
-        delegate.setExpansionState(it, true);
-        _markIsExpanding(it);
-      });
+  /// Updates the expansion state of [node.item] and all its descendants to
+  /// `false`.
+  void collapseCascading(TreeNode<T> node) {
+    delegate.setExpansionState(node.item, false);
+    for (final TreeNode<T> descendant in node.descendants) {
+      delegate.setExpansionState(descendant.item, false);
+      _markIsCollapsing(descendant.key);
     }
 
-    rebuild();
-    startAnimating(() => _expandingItems.clear());
+    // Make sure all nodes got their animations
+    setState(() {});
+
+    startCollapseAnimation(rebuild);
   }
 
-  /// Updates the expansion state of [item] and all its descendants to `false`.
-  void collapseItemCascading(T item) {
-    _visitBranch(item, (T it) => delegate.setExpansionState(it, false));
-    rebuild();
-  }
-
-  /// Updates the selection state of [item] and rebuilds the tree.
+  /// Convenient method for traversing the tree.
   ///
-  /// No checks are done to [item]. So, this will execute even if the item is
-  /// already selected.
-  void selectItem(T item) {
-    setState(() {
-      delegate.setSelectionState(item, true);
-    });
-  }
-
-  /// Updates the selection state of [item].
-  ///
-  /// No checks are done to [item]. So, this will execute even if the item is
-  /// already not selected.
-  void deselectItem(T item) {
-    setState(() {
-      delegate.setExpansionState(item, false);
-    });
-  }
-
-  /// Checks the selection state of [item] and updates it to the opposite state.
-  void toggleItemSelection(T item) {
-    delegate.getSelectionState(item) ? deselectItem(item) : selectItem(item);
-  }
-
-  /// Updates the selection state of [item] and all its descendants to `true`.
-  void selectItemCascading(T item) {
-    setState(() {
-      _visitBranch(item, (T it) => delegate.setSelectionState(it, true));
-    });
-  }
-
-  /// Updates the selection state of [item] and all its descendants to `false`.
-  void deselectItemCascading(T item) {
-    setState(() {
-      _visitBranch(item, (T it) => delegate.setSelectionState(it, false));
-    });
-  }
-
-  /// Convenient function for traversing the tree.
-  ///
-  /// This function will build the flat tree in depth first order and return it
+  /// This method will build the flat tree in depth first order and return it
   /// as a plain dart list composed by [TreeNode] objects.
   ///
-  /// [TreeNode]s hold important information about the context of its item in the
-  /// current tree.
+  /// [TreeNode]s hold important information about the context of its item in
+  /// the current tree.
   ///
   /// The returned list is composed by all nodes whose parent is **expanded**,
-  /// as of [findExpansionState].
+  /// as of [TreeDelegate.getExpansionState].
   @protected
   List<TreeNode<T>> buildFlatTree() {
     final List<TreeNode<T>> tree = <TreeNode<T>>[];
@@ -197,6 +188,7 @@ mixin TreeControllerMixin<T, S extends StatefulWidget>
         final T item = childItems[index];
 
         final MutableTreeNode<T> node = MutableTreeNode<T>(
+          key: keyFactory(item),
           item: item,
           isExpanded: delegate.getExpansionState(item),
           level: level,
@@ -233,13 +225,15 @@ mixin TreeControllerMixin<T, S extends StatefulWidget>
     return tree;
   }
 
-  void _visitBranch(T item, OnTraverse<T> action) {
-    action(item);
-
+  void _visitVisibleDescendants(T item, OnTraverse<T> action) {
     final List<T> children = delegate.findChildren(item);
 
     for (final T child in children) {
-      _visitBranch(child, action);
+      delegate.traverse(
+        item: child,
+        shouldContinue: delegate.getExpansionState,
+        onTraverse: action,
+      );
     }
   }
 }

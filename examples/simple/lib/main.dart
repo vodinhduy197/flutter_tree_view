@@ -93,10 +93,13 @@ class _CustomTreeViewState extends State<CustomTreeView> {
         return TreeTile<Item>(
           node: node,
           guide: const IndentGuide.connectingLines(indent: 24, thickness: 1),
-          onTap: () => SliverTree.of(context).toggleItemExpansion(node.item),
+          onTap: () => SliverTree.of(context).toggle(node),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
-            child: Text('$label - Children: $childCount'),
+            child: SizedBox(
+              width: double.infinity,
+              child: Text('$label - Children: $childCount'),
+            ),
           ),
         );
       },

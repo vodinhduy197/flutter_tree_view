@@ -10,9 +10,9 @@ typedef TreeNodeWidgetBuilder<T> = Widget Function(
   TreeNode<T> node,
 );
 
-/// Signature for a function that takes a widget and an animation and applies
+/// Signature for a function that takes a widget and an animation to apply
 /// transitions if needed.
-typedef ExpandTransitionBuilder = Widget Function(
+typedef TreeTransitionBuilder = Widget Function(
   Widget child,
   Animation<double>,
 );
@@ -38,7 +38,7 @@ class TreeView<T> extends StatelessWidget {
     required this.delegate,
     required this.builder,
     this.keyFactory,
-    this.expandTransitionBuilder = defaultExpandTransitionBuilder,
+    this.transitionBuilder = defaultTransitionBuilder,
     this.itemExtent,
     this.prototypeItem,
     this.padding,
@@ -54,9 +54,13 @@ class TreeView<T> extends StatelessWidget {
     this.clipBehavior = Clip.hardEdge,
   });
 
-  /// A global key that can be used to get the current state of the underlying
-  /// [SliverTree].
-  final GlobalKey<SliverTreeState<T>>? sliverTreeKey;
+  /// The key passed in to [SliverTree].
+  ///
+  /// Use a [GlobalKey<SliverTreeState<T>>] to get access to the current state
+  /// of the tree, the [SliverTreeState] subclasses [TreeControllerMixin]
+  /// providing some useful methods like `expand`, `collapse`, `toggle`,
+  /// `rebuild`, ..., to manage the state of the tree.
+  final Key? sliverTreeKey;
 
   /// An interface to dynamically manage the state of the tree.
   ///
@@ -84,16 +88,13 @@ class TreeView<T> extends StatelessWidget {
   /// Checkout the [TreeTile] widget.
   final TreeNodeWidgetBuilder<T> builder;
 
-  /// Callback used to add animations to the expansion of a branch.
-  ///
-  /// When an item is expanded, all its descendants that will be revealed are
-  /// wrapped by this callback.
+  /// Callback used to animate the expansion state change of a branch.
   ///
   /// See also:
   ///
-  ///   * [defaultExpandTransitionBuilder] that uses some standard slide and
-  ///     grow transitions.
-  final ExpandTransitionBuilder expandTransitionBuilder;
+  ///   * [defaultTransitionBuilder] that uses [SizeTransition] with a curve of
+  ///     [Curves.decelerate].
+  final TreeTransitionBuilder transitionBuilder;
 
   /// {@macro flutter.widgets.scroll_view.controller}
   final ScrollController? scrollController;
@@ -163,7 +164,7 @@ class TreeView<T> extends StatelessWidget {
             delegate: delegate,
             keyFactory: keyFactory,
             builder: builder,
-            expandTransitionBuilder: expandTransitionBuilder,
+            transitionBuilder: transitionBuilder,
             itemExtent: itemExtent,
             prototypeItem: prototypeItem,
           ),
@@ -190,7 +191,7 @@ class SliverTree<T> extends StatefulWidget {
     required this.delegate,
     required this.builder,
     this.keyFactory,
-    this.expandTransitionBuilder = defaultExpandTransitionBuilder,
+    this.transitionBuilder = defaultTransitionBuilder,
     this.itemExtent,
     this.prototypeItem,
   }) : assert(
@@ -222,16 +223,13 @@ class SliverTree<T> extends StatefulWidget {
   /// current tree context of the particular [TreeNode.item] that it holds.
   final TreeNodeWidgetBuilder<T> builder;
 
-  /// Callback used to add animations to the expansion of a branch.
-  ///
-  /// When an item is expanded, all its descendants that will be revealed are
-  /// wrapped by this callback.
+  /// Callback used to animate the expansion state change of a branch.
   ///
   /// See also:
   ///
-  ///   * [defaultExpandTransitionBuilder] that uses some standard slide and
-  ///     grow transitions.
-  final ExpandTransitionBuilder expandTransitionBuilder;
+  ///   * [defaultTransitionBuilder] that uses [SizeTransition] with a curve of
+  ///     [Curves.decelerate].
+  final TreeTransitionBuilder transitionBuilder;
 
   /// {@macro flutter.widgets.list_view.itemExtent}
   final double? itemExtent;
@@ -310,7 +308,7 @@ class SliverTree<T> extends StatefulWidget {
 ///   - Calling `SliverTree.maybeOf<T>(context)` (nullable return);
 class SliverTreeState<T> extends State<SliverTree<T>>
     with
-        SingleTickerProviderStateMixin<SliverTree<T>>,
+        TickerProviderStateMixin<SliverTree<T>>,
         TreeAnimationsMixin<SliverTree<T>>,
         TreeControllerMixin<T, SliverTree<T>> {
   @override
@@ -330,8 +328,8 @@ class SliverTreeState<T> extends State<SliverTree<T>>
 
   @override
   void initState() {
-    super.initState();
     _effectiveKeyFactory = widget.keyFactory ?? defaultKeyFactory;
+    super.initState();
   }
 
   @override
@@ -376,15 +374,12 @@ class SliverTreeState<T> extends State<SliverTree<T>>
   Widget _builder(BuildContext context, int index) {
     final TreeNode<T> node = nodeAt(index);
 
-    late Widget child = widget.builder(context, node);
-
-    if (isItemExpanding(node.item)) {
-      child = widget.expandTransitionBuilder(child, animation);
-    }
-
     return KeyedSubtree(
-      key: keyFactory(node.item),
-      child: child,
+      key: node.key,
+      child: widget.transitionBuilder(
+        widget.builder(context, node),
+        findAnimation(node),
+      ),
     );
   }
 }
@@ -396,9 +391,9 @@ class SliverTreeState<T> extends State<SliverTree<T>>
 /// When using this function, make sure [item]'s [operator ==] is consistent.
 Key defaultKeyFactory<T>(T item) => ValueKey<T>(item);
 
-/// The default transition builder used by the tree view for when a branch is
-/// revealed (node is expanded so descendants animate in).
-Widget defaultExpandTransitionBuilder(
+/// The default transition builder used by the tree view to animate the
+/// expansion state changes of a node.
+Widget defaultTransitionBuilder(
   Widget child,
   Animation<double> animation,
 ) {
@@ -407,18 +402,8 @@ Widget defaultExpandTransitionBuilder(
     parent: animation,
   );
 
-  final Animation<Offset> slideAnimation = Tween<Offset>(
-    begin: const Offset(0, -1),
-    end: Offset.zero,
-  ).animate(sizeAnimation);
-
-  return ClipRect(
-    child: SlideTransition(
-      position: slideAnimation,
-      child: SizeTransition(
-        sizeFactor: sizeAnimation,
-        child: child,
-      ),
-    ),
+  return SizeTransition(
+    sizeFactor: sizeAnimation,
+    child: child,
   );
 }
