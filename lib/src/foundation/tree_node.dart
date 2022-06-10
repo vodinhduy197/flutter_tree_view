@@ -1,5 +1,7 @@
 import 'dart:collection' show UnmodifiableListView;
 
+import 'package:flutter/foundation.dart' show Key;
+
 /// Simple typedef for an unmodifiable list of [TreeNode<T>].
 typedef FlatTree<T> = UnmodifiableListView<TreeNode<T>>;
 
@@ -14,6 +16,7 @@ typedef FlatTree<T> = UnmodifiableListView<TreeNode<T>>;
 abstract class TreeNode<T> {
   /// Defines the constructor configuration for subclasses to implement.
   const TreeNode({
+    required this.key,
     required this.item,
     required this.isExpanded,
     required this.localIndex,
@@ -31,6 +34,11 @@ abstract class TreeNode<T> {
   ///
   /// Returns a list containing all levels that **should** have a line drawn.
   List<int> get levelsWithLineGuides;
+
+  /// A key bound to [item].
+  ///
+  /// Used to find the correct instance of [TreeNode] for a given item.
+  final Key key;
 
   /// The item attached to this node.
   final T item;
@@ -86,6 +94,23 @@ abstract class TreeNode<T> {
   /// Exemple: `[root, ..., parent, this]`.
   List<TreeNode<T>> get path => [...?parent?.path, this];
 
+  /// Creates an [Iterable] of all [TreeNode]s under this in depth first order.
+  Iterable<TreeNode<T>> get descendants sync* {
+    for (final TreeNode<T> child in children) {
+      yield child;
+      yield* child.descendants;
+    }
+  }
+
+  /// Same as [descendants], the difference is that [branch] includes the node
+  /// being called (i.e [this]).
+  Iterable<TreeNode<T>> get branch sync* {
+    yield this;
+    for (final TreeNode<T> child in children) {
+      yield* child.branch;
+    }
+  }
+
   @override
   String toString() {
     return 'TreeNode<$T>('
@@ -111,6 +136,7 @@ abstract class TreeNode<T> {
 class MutableTreeNode<T> extends TreeNode<T> {
   /// Creates a [MutableTreeNode].
   MutableTreeNode({
+    required super.key,
     required super.item,
     required super.isExpanded,
     required super.localIndex,
