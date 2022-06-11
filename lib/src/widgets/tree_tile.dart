@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../foundation.dart';
-import 'indentation/indent_guide.dart';
 import 'tree_indentation.dart';
 
 /// A Simple widget to display [TreeNode]s on the [TreeView].
@@ -75,8 +74,7 @@ class TreeTile<T> extends StatelessWidget {
 
   /// The tree node at this tile on the tree.
   ///
-  /// This [node] holds important information for building the [TreeIndentation]
-  /// as well as checking its expansion state.
+  /// This [node] holds important information for building the [TreeIndentation].
   final TreeNode<T> node;
 
   /// The guide that will be used by [TreeIndentation] to indent the levels of
