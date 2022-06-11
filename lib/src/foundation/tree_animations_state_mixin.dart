@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 
 /// An animation mixin used by [TreeControllerMixin] to animate the expansion
 /// state change of tree nodes.
-mixin TreeAnimationsMixin<S extends StatefulWidget>
+mixin TreeAnimationsStateMixin<S extends StatefulWidget>
     on State<S>, TickerProviderStateMixin<S> {
   late final AnimationController _expandAnimationController;
   late final AnimationController _collapseAnimationController;
