@@ -37,6 +37,7 @@ class TreeView<T> extends StatelessWidget {
     this.sliverTreeKey,
     required this.delegate,
     required this.builder,
+    this.controller,
     this.keyFactory,
     this.transitionBuilder = defaultTransitionBuilder,
     this.itemExtent,
@@ -71,6 +72,17 @@ class TreeView<T> extends StatelessWidget {
   /// handler callbacks.
   final TreeDelegate<T> delegate;
 
+  /// Callback used to map your data into widgets.
+  ///
+  /// The `TreeNode<T> node` parameter contains important information about the
+  /// current tree context of the particular [TreeNode.item] that it holds.
+  ///
+  /// Checkout the [TreeTile] widget.
+  final TreeNodeWidgetBuilder<T> builder;
+
+  /// An optional controller that can be used to dynamically update the tree.
+  final TreeController<T>? controller;
+
   /// A helper method to get a [Key] for [item].
   ///
   /// If null, [defaultKeyFactory] will be used to create [ValueKey<T>]'s for
@@ -79,14 +91,6 @@ class TreeView<T> extends StatelessWidget {
   /// Make sure the key provided for an item is always the same and unique
   /// among other keys, otherwise it could lead to inconsistent tree state.
   final KeyFactory<T>? keyFactory;
-
-  /// Callback used to map your data into widgets.
-  ///
-  /// The `TreeNode<T> node` parameter contains important information about the
-  /// current tree context of the particular [TreeNode.item] that it holds.
-  ///
-  /// Checkout the [TreeTile] widget.
-  final TreeNodeWidgetBuilder<T> builder;
 
   /// Callback used to animate the expansion state change of a branch.
   ///
@@ -162,8 +166,9 @@ class TreeView<T> extends StatelessWidget {
           sliver: SliverTree<T>(
             key: sliverTreeKey,
             delegate: delegate,
-            keyFactory: keyFactory,
+            controller: controller,
             builder: builder,
+            keyFactory: keyFactory,
             transitionBuilder: transitionBuilder,
             itemExtent: itemExtent,
             prototypeItem: prototypeItem,
@@ -190,6 +195,7 @@ class SliverTree<T> extends StatefulWidget {
     super.key,
     required this.delegate,
     required this.builder,
+    this.controller,
     this.keyFactory,
     this.transitionBuilder = defaultTransitionBuilder,
     this.itemExtent,
@@ -208,6 +214,15 @@ class SliverTree<T> extends StatefulWidget {
   /// handler callbacks.
   final TreeDelegate<T> delegate;
 
+  /// Callback used to map your data into widgets.
+  ///
+  /// The `TreeNode<T> node` parameter contains important information about the
+  /// current tree context of the particular [TreeNode.item] that it holds.
+  final TreeNodeWidgetBuilder<T> builder;
+
+  /// An optional controller that can be used to dynamically update the tree.
+  final TreeController<T>? controller;
+
   /// A helper method to get a [Key] for [item].
   ///
   /// If null, [defaultKeyFactory] will be used to create [ValueKey<T>]'s for
@@ -216,12 +231,6 @@ class SliverTree<T> extends StatefulWidget {
   /// Make sure the key provided for an item is always the same and unique
   /// among other keys, otherwise it could lead to inconsistent tree state.
   final KeyFactory<T>? keyFactory;
-
-  /// Callback used to map your data into widgets.
-  ///
-  /// The `TreeNode<T> node` parameter contains important information about the
-  /// current tree context of the particular [TreeNode.item] that it holds.
-  final TreeNodeWidgetBuilder<T> builder;
 
   /// Callback used to animate the expansion state change of a branch.
   ///
@@ -309,8 +318,8 @@ class SliverTree<T> extends StatefulWidget {
 class SliverTreeState<T> extends State<SliverTree<T>>
     with
         TickerProviderStateMixin<SliverTree<T>>,
-        TreeAnimationsMixin<SliverTree<T>>,
-        TreeControllerMixin<T, SliverTree<T>> {
+        TreeAnimationsStateMixin<SliverTree<T>>,
+        TreeControllerStateMixin<T, SliverTree<T>> {
   @override
   TreeDelegate<T> get delegate => widget.delegate;
 
@@ -323,13 +332,13 @@ class SliverTreeState<T> extends State<SliverTree<T>>
   bool get isRtl => _isRtl;
   bool _isRtl = false;
 
-  /// The ancestor scrollable state this sliver is attached to.
-  ScrollableState? get scrollable => Scrollable.of(context);
-
   @override
   void initState() {
+    // The [TreeControllerStateMixin] uses keyFactory in its [initState] when
+    // building the tree for the first time, so it has to be already set.
     _effectiveKeyFactory = widget.keyFactory ?? defaultKeyFactory;
     super.initState();
+    widget.controller?.attach(this);
   }
 
   @override
@@ -341,12 +350,23 @@ class SliverTreeState<T> extends State<SliverTree<T>>
     if (oldWidget.delegate != delegate) {
       rebuild();
     }
+
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?.detach(this);
+      widget.controller?.attach(this);
+    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _isRtl = Directionality.maybeOf(context) == TextDirection.rtl;
+  }
+
+  @override
+  void dispose() {
+    widget.controller?.detach(this);
+    super.dispose();
   }
 
   @override

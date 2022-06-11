@@ -38,7 +38,65 @@ abstract class AbstractTreeController<T> {
   void collapseAll();
 }
 
+/// A simple controller that when attached to a [SliverTree], delegates its
+/// method calls to the underlying [TreeControllerStateMixin].
+///
+/// When not attached, the methods of this controller do nothing.
+class TreeController<T> implements AbstractTreeController<T> {
+  TreeControllerStateMixin<T, StatefulWidget>? _proxy;
+
+  /// Used by [SliverTree] to attach its [TreeControllerStateMixin] to this
+  /// controller.
+  void attach(TreeControllerStateMixin<T, StatefulWidget> controllerState) {
+    _proxy = controllerState;
+  }
+
+  /// Detaches this [TreeController] from its [TreeControllerStateMixin].
+  void detach(TreeControllerStateMixin<T, StatefulWidget> controllerState) {
+    if (controllerState == _proxy) {
+      _proxy = null;
+    }
+  }
+
+  /// {@macro flutter_fancy_tree_view.tree_controller.rebuild}
+  @override
+  void rebuild() => _proxy?.rebuild();
+
+  /// {@macro flutter_fancy_tree_view.tree_controller.expand}
+  @override
+  void expand(TreeNode<T> node) => _proxy?.expand(node);
+
+  /// {@macro flutter_fancy_tree_view.tree_controller.collapse}
+  @override
+  void collapse(TreeNode<T> node) => _proxy?.collapse(node);
+
+  /// {@macro flutter_fancy_tree_view.tree_controller.toggle}
+  @override
+  void toggle(TreeNode<T> node) => _proxy?.toggle(node);
+
+  /// {@macro flutter_fancy_tree_view.tree_controller.expandCascading}
+  @override
+  void expandCascading(TreeNode<T> node) => _proxy?.expandCascading(node);
+
+  /// {@macro flutter_fancy_tree_view.tree_controller.collapseCascading}
+  @override
+  void collapseCascading(TreeNode<T> node) => _proxy?.collapseCascading(node);
+
+  /// {@macro flutter_fancy_tree_view.tree_controller.expandAll}
+  @override
+  void expandAll() => _proxy?.expandAll();
+
+  /// {@macro flutter_fancy_tree_view.tree_controller.collapseAll}
+  @override
+  void collapseAll() => _proxy?.collapseAll();
+}
+
 /// A state mixin used by [SliverTree] to manage the tree provided by a [TreeDelegate].
+///
+/// See also:
+///
+///   * [TreeController] which when attached to a [SliverTree], delegates its
+///     method calls to this mixin, useful to dynamically update the tree.
 mixin TreeControllerStateMixin<T, S extends StatefulWidget>
     on State<S>, TreeAnimationsStateMixin<S>
     implements AbstractTreeController<T> {
