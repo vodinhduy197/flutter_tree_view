@@ -39,7 +39,7 @@ class TreeView<T> extends StatelessWidget {
     required this.builder,
     this.controller,
     this.keyFactory,
-    this.transitionBuilder = defaultTransitionBuilder,
+    this.transitionBuilder = defaultTreeTransitionBuilder,
     this.itemExtent,
     this.prototypeItem,
     this.padding,
@@ -96,8 +96,8 @@ class TreeView<T> extends StatelessWidget {
   ///
   /// See also:
   ///
-  ///   * [defaultTransitionBuilder] that uses [SizeTransition] with a curve of
-  ///     [Curves.decelerate].
+  ///   * [defaultTreeTransitionBuilder] that uses fade and size transitions
+  ///     with a curve of [Curves.decelerate].
   final TreeTransitionBuilder transitionBuilder;
 
   /// {@macro flutter.widgets.scroll_view.controller}
@@ -197,7 +197,7 @@ class SliverTree<T> extends StatefulWidget {
     required this.builder,
     this.controller,
     this.keyFactory,
-    this.transitionBuilder = defaultTransitionBuilder,
+    this.transitionBuilder = defaultTreeTransitionBuilder,
     this.itemExtent,
     this.prototypeItem,
   }) : assert(
@@ -236,8 +236,8 @@ class SliverTree<T> extends StatefulWidget {
   ///
   /// See also:
   ///
-  ///   * [defaultTransitionBuilder] that uses [SizeTransition] with a curve of
-  ///     [Curves.decelerate].
+  ///   * [defaultTreeTransitionBuilder] that uses fade and size transitions
+  ///     with a curve of [Curves.decelerate].
   final TreeTransitionBuilder transitionBuilder;
 
   /// {@macro flutter.widgets.list_view.itemExtent}
@@ -402,28 +402,4 @@ class SliverTreeState<T> extends State<SliverTree<T>>
       ),
     );
   }
-}
-
-/// Default key factory used to get a [Key] for an [item].
-///
-/// This function creates a [ValueKey<T>] for [item].
-///
-/// When using this function, make sure [item]'s [operator ==] is consistent.
-Key defaultKeyFactory<T>(T item) => ValueKey<T>(item);
-
-/// The default transition builder used by the tree view to animate the
-/// expansion state changes of a node.
-Widget defaultTransitionBuilder(
-  Widget child,
-  Animation<double> animation,
-) {
-  final Animation<double> sizeAnimation = CurvedAnimation(
-    curve: Curves.decelerate,
-    parent: animation,
-  );
-
-  return SizeTransition(
-    sizeFactor: sizeAnimation,
-    child: child,
-  );
 }

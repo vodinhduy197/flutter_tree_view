@@ -1,35 +1,58 @@
 import 'package:flutter/widgets.dart';
 
-/// An animation mixin used by [TreeControllerMixin] to animate the expansion
-/// state change of tree nodes.
+/// The default transition builder used by the tree view to animate the
+/// expansion state changes of a node.
+///
+/// This function applies a [Curves.decelerate] to [animation] and uses it to
+/// wrap [child] with fade and size transitions.
+Widget defaultTreeTransitionBuilder(
+  Widget child,
+  Animation<double> animation,
+) {
+  final Animation<double> sizeAnimation = CurvedAnimation(
+    curve: Curves.decelerate,
+    parent: animation,
+  );
+
+  return FadeTransition(
+    opacity: Tween(begin: 0.5, end: 1.0).animate(animation),
+    child: SizeTransition(
+      sizeFactor: sizeAnimation,
+      child: child,
+    ),
+  );
+}
+
+/// An animation mixin used by [TreeControllerStateMixin] to animate the
+/// expansion state changes of tree nodes.
 mixin TreeAnimationsStateMixin<S extends StatefulWidget>
     on State<S>, TickerProviderStateMixin<S> {
-  late final AnimationController _expandAnimationController;
-  late final AnimationController _collapseAnimationController;
+  late final AnimationController _revealAnimationController;
+  late final AnimationController _concealAnimationController;
 
-  /// The animation used to expand nodes on the tree.
-  Animation<double> get expandAnimation => _expandAnimationController.view;
+  /// The animation played when a node is expanded.
+  Animation<double> get revealAnimation => _revealAnimationController.view;
 
-  /// The animation used to collapse nodes on the tree.
-  Animation<double> get collapseAnimation => _collapseAnimationController.view;
+  /// The animation played when a node is collapsed.
+  Animation<double> get concealAnimation => _concealAnimationController.view;
 
-  /// The duration in which to play [expandAnimation].
-  Duration get expandDuration => const Duration(milliseconds: 300);
+  /// The duration in which to play [revealAnimation].
+  Duration get revealDuration => const Duration(milliseconds: 300);
 
-  /// The duration in which to play [collapseAnimation].
-  Duration get collapseDuration => const Duration(milliseconds: 150);
+  /// The duration in which to play [concealAnimation].
+  Duration get concealDuration => const Duration(milliseconds: 150);
 
-  /// Start the expand animation.
+  /// Starts animating the [revealAnimation].
   @protected
-  void startExpandAnimation() => _expandAnimationController.forward(from: 0.0);
+  void startRevealAnimation() => _revealAnimationController.forward(from: 0.0);
 
-  /// Start the collapse animation.
+  /// Starts animating the [concealAnimation].
   ///
-  /// This method will start [collapseAnimation] and call [whenComplete] when
+  /// This method will start [concealAnimation] and call [whenComplete] when
   /// the animation is done.
   @protected
-  void startCollapseAnimation(VoidCallback whenComplete) {
-    _collapseAnimationController
+  void startConcealAnimation(VoidCallback whenComplete) {
+    _concealAnimationController
         .reverse(from: 1.0)
         .whenCompleteOrCancel(whenComplete);
   }
@@ -37,21 +60,21 @@ mixin TreeAnimationsStateMixin<S extends StatefulWidget>
   @override
   void initState() {
     super.initState();
-    _expandAnimationController = AnimationController(
+    _revealAnimationController = AnimationController(
       vsync: this,
-      duration: expandDuration,
+      duration: revealDuration,
     );
 
-    _collapseAnimationController = AnimationController(
+    _concealAnimationController = AnimationController(
       vsync: this,
-      duration: collapseDuration,
+      duration: concealDuration,
     );
   }
 
   @override
   void dispose() {
-    _expandAnimationController.dispose();
-    _collapseAnimationController.dispose();
+    _revealAnimationController.dispose();
+    _concealAnimationController.dispose();
     super.dispose();
   }
 }

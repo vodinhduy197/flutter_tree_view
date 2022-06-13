@@ -4,91 +4,57 @@ import 'tree_animations_state_mixin.dart';
 import 'tree_delegate.dart';
 import 'tree_node.dart';
 
-/// An interface that declares methods to dynamically update a tree.
-abstract class AbstractTreeController<T> {
-  /// Subclasses should override this method to rebuild the tree.
-  void rebuild();
-
-  /// Subclasses should override this method to update the expansion state of
-  /// [node.item] to `true`.
-  void expand(TreeNode<T> node);
-
-  /// Subclasses should override this method to update the expansion state of
-  /// [node.item] to `false`.
-  void collapse(TreeNode<T> node);
-
-  /// Subclasses should override this method to toggle the expansion state of
-  /// [node.item] to the opposite state.
-  void toggle(TreeNode<T> node);
-
-  /// Subclasses should override this method to update the expansion state of
-  /// [node.item] and all its descendants to `true`.
-  void expandCascading(TreeNode<T> node);
-
-  /// Subclasses should override this method to update the expansion state of
-  /// [node.item] and all its descendants to `false`.
-  void collapseCascading(TreeNode<T> node);
-
-  /// Subclasses should override this method to update the expansion state of
-  /// all nodes to `true`.
-  void expandAll();
-
-  /// Subclasses should override this method to update the expansion state of
-  /// all nodes to `false`.
-  void collapseAll();
-}
+/// Default key factory used to get a [Key] for an [item].
+///
+/// This function creates a [ValueKey<T>] for [item].
+///
+/// When using this function, make sure [item]'s [operator ==] is consistent.
+Key defaultKeyFactory<T>(T item) => ValueKey<T>(item);
 
 /// A simple controller that when attached to a [SliverTree], delegates its
 /// method calls to the underlying [TreeControllerStateMixin].
 ///
 /// When not attached, the methods of this controller do nothing.
-class TreeController<T> implements AbstractTreeController<T> {
-  TreeControllerStateMixin<T, StatefulWidget>? _proxy;
+class TreeController<T> {
+  TreeControllerStateMixin<T, StatefulWidget>? _state;
 
   /// Used by [SliverTree] to attach its [TreeControllerStateMixin] to this
   /// controller.
-  void attach(TreeControllerStateMixin<T, StatefulWidget> controllerState) {
-    _proxy = controllerState;
+  void attach(TreeControllerStateMixin<T, StatefulWidget> state) {
+    assert(_state == null, 'TreeController already attached.');
+    _state = state;
   }
 
   /// Detaches this [TreeController] from its [TreeControllerStateMixin].
-  void detach(TreeControllerStateMixin<T, StatefulWidget> controllerState) {
-    if (controllerState == _proxy) {
-      _proxy = null;
+  void detach(TreeControllerStateMixin<T, StatefulWidget> state) {
+    if (state == _state) {
+      _state = null;
     }
   }
 
   /// {@macro flutter_fancy_tree_view.tree_controller.rebuild}
-  @override
-  void rebuild() => _proxy?.rebuild();
+  void rebuild() => _state?.rebuild();
 
   /// {@macro flutter_fancy_tree_view.tree_controller.expand}
-  @override
-  void expand(TreeNode<T> node) => _proxy?.expand(node);
+  void expand(TreeNode<T> node) => _state?.expand(node);
 
   /// {@macro flutter_fancy_tree_view.tree_controller.collapse}
-  @override
-  void collapse(TreeNode<T> node) => _proxy?.collapse(node);
+  void collapse(TreeNode<T> node) => _state?.collapse(node);
 
   /// {@macro flutter_fancy_tree_view.tree_controller.toggle}
-  @override
-  void toggle(TreeNode<T> node) => _proxy?.toggle(node);
+  void toggle(TreeNode<T> node) => _state?.toggle(node);
 
   /// {@macro flutter_fancy_tree_view.tree_controller.expandCascading}
-  @override
-  void expandCascading(TreeNode<T> node) => _proxy?.expandCascading(node);
+  void expandCascading(TreeNode<T> node) => _state?.expandCascading(node);
 
   /// {@macro flutter_fancy_tree_view.tree_controller.collapseCascading}
-  @override
-  void collapseCascading(TreeNode<T> node) => _proxy?.collapseCascading(node);
+  void collapseCascading(TreeNode<T> node) => _state?.collapseCascading(node);
 
   /// {@macro flutter_fancy_tree_view.tree_controller.expandAll}
-  @override
-  void expandAll() => _proxy?.expandAll();
+  void expandAll() => _state?.expandAll();
 
   /// {@macro flutter_fancy_tree_view.tree_controller.collapseAll}
-  @override
-  void collapseAll() => _proxy?.collapseAll();
+  void collapseAll() => _state?.collapseAll();
 }
 
 /// A state mixin used by [SliverTree] to manage the tree provided by a [TreeDelegate].
@@ -98,8 +64,7 @@ class TreeController<T> implements AbstractTreeController<T> {
 ///   * [TreeController] which when attached to a [SliverTree], delegates its
 ///     method calls to this mixin, useful to dynamically update the tree.
 mixin TreeControllerStateMixin<T, S extends StatefulWidget>
-    on State<S>, TreeAnimationsStateMixin<S>
-    implements AbstractTreeController<T> {
+    on State<S>, TreeAnimationsStateMixin<S> {
   /// An interface that dynamically manages the state of the tree.
   ///
   /// Subclass [TreeDelegate] and implement the required methods to compose the
@@ -123,12 +88,7 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
   int get treeSize => nodes.length;
 
   /// Returns the current node at [index] of the flattened tree.
-  TreeNode<T> nodeAt(int index) {
-    assert(0 <= index && index < treeSize, 'Index out of range.');
-    final TreeNode<T> node = nodes[index];
-    assert(node.globalIndex == index, 'The tree was malformed.');
-    return node;
-  }
+  TreeNode<T> nodeAt(int index) => nodes[index];
 
   void _build() {
     final List<TreeNode<T>> flatTree = buildFlatTree();
@@ -183,7 +143,6 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
   /// }
   /// ```
   /// {@endtemplate}
-  @override
   void rebuild() => setState(_build);
 
   @override
@@ -198,32 +157,26 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
     super.dispose();
   }
 
-  final Map<Key, bool> _expandingNodes = <Key, bool>{};
-  bool _checkIsExpanding(Key key) => _expandingNodes.remove(key) ?? false;
-  void _markIsExpanding(Key key) {
-    _expandingNodes[key] = true;
-  }
+  final Map<Key, bool> _revealingNodes = <Key, bool>{};
+  void _markIsRevealing(Key key) => _revealingNodes[key] = true;
 
-  final Map<Key, bool> _collapsingNodes = <Key, bool>{};
-  bool _checkIsCollapsing(Key key) => _collapsingNodes.remove(key) ?? false;
-  void _markIsCollapsing(Key key) {
-    _collapsingNodes[key] = true;
-  }
+  final Map<Key, bool> _concealingNodes = <Key, bool>{};
+  void _markIsConcealing(Key key) => _concealingNodes[key] = true;
 
-  /// Returns and Animation<double> based on the current state of [node].
+  /// Returns an Animation<double> based on the current state of [node].
   ///
-  /// If [node] is neither expanding nor collapsing, [kAlwaysCompleteAnimation]
-  /// is returned.
+  /// Returns a [kAlwaysCompleteAnimation] if [node] is neither being revealed
+  /// nor concealed.
   ///
   /// This method also removes [node] from its animating list.
   @protected
   Animation<double> findAnimation(TreeNode<T> node) {
-    if (_checkIsExpanding(node.key)) {
-      return expandAnimation;
+    if (_revealingNodes.remove(node.key) ?? false) {
+      return revealAnimation;
     }
 
-    if (_checkIsCollapsing(node.key)) {
-      return collapseAnimation;
+    if (_concealingNodes.remove(node.key) ?? false) {
+      return concealAnimation;
     }
 
     return kAlwaysCompleteAnimation;
@@ -235,18 +188,17 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
   /// No checks are done to [node.item]. So, this will execute even if the item
   /// is already expanded.
   /// {@endtemplate}
-  @override
   void expand(TreeNode<T> node) {
     // Don't call [delegate.traverse] directly with [node.item] so that the
     // expanding node itself doesn't animate.
     delegate.setExpansionState(node.item, true);
     _visitVisibleDescendants(
       node.item,
-      (T item) => _markIsExpanding(keyFactory(item)),
+      (T item) => _markIsRevealing(keyFactory(item)),
     );
 
     rebuild();
-    startExpandAnimation();
+    startRevealAnimation();
   }
 
   /// {@template flutter_fancy_tree_view.tree_controller.collapse}
@@ -255,23 +207,16 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
   /// No checks are done to [node.item]. So, this will execute even if the item
   /// is already collapsed.
   /// {@endtemplate}
-  @override
   void collapse(TreeNode<T> node) {
     delegate.setExpansionState(node.item, false);
-    for (final TreeNode<T> descendant in node.descendants) {
-      _markIsCollapsing(descendant.key);
-    }
 
-    // Make sure all nodes got their animations
-    setState(() {});
-
-    startCollapseAnimation(rebuild);
+    setState(() => _concealNodes(node.descendants));
+    startConcealAnimation(rebuild);
   }
 
   /// {@template flutter_fancy_tree_view.tree_controller.toggle}
   /// Updates [node.item] expansion state to the opposite state.
   /// {@endtemplate}
-  @override
   void toggle(TreeNode<T> node) {
     delegate.getExpansionState(node.item) ? collapse(node) : expand(node);
   }
@@ -280,7 +225,6 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
   /// Traverses [node]'s branch updating all descendants expansion state to
   /// `true` and rebuilds the tree.
   /// {@endtemplate}
-  @override
   void expandCascading(TreeNode<T> node) {
     // Don't call [delegate.traverse] directly with [node.item] so that the
     // expanding node itself doesn't animate.
@@ -289,41 +233,37 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
       node.item,
       (T item) {
         delegate.setExpansionState(item, true);
-        _markIsExpanding(keyFactory(item));
+        _markIsRevealing(keyFactory(item));
       },
     );
 
     rebuild();
-    startExpandAnimation();
+    startRevealAnimation();
   }
 
   /// {@template flutter_fancy_tree_view.tree_controller.collapseCascading}
   /// Traverses [node]'s branch updating all descendants expansion state to
   /// `false` and rebuilds the tree.
   /// {@endtemplate}
-  @override
   void collapseCascading(TreeNode<T> node) {
-    delegate.setExpansionState(node.item, false);
-    for (final TreeNode<T> descendant in node.descendants) {
-      delegate.setExpansionState(descendant.item, false);
-      _markIsCollapsing(descendant.key);
-    }
+    delegate.traverse(
+      item: node.item,
+      shouldContinue: (_) => true,
+      onTraverse: (T item) => delegate.setExpansionState(item, false),
+    );
 
-    // Make sure all nodes got their animations
-    setState(() {});
-
-    startCollapseAnimation(rebuild);
+    setState(() => _concealNodes(node.descendants));
+    startConcealAnimation(rebuild);
   }
 
   /// {@template flutter_fancy_tree_view.tree_controller.expandAll}
   /// Traverses the entire tree provided by [TreeDelegate] updating the
   /// expansion state of all items to `true`.
   /// {@endtemplate}
-  @override
   void expandAll() {
     setState(() {
       _nodes = FlatTree<T>(_buildExpandedFlatTree());
-      startExpandAnimation();
+      startRevealAnimation();
     });
   }
 
@@ -344,13 +284,7 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
   ///   - it starts animating out the collapsed node's children;
   ///   - then it updates [nodes] with the new tree composed by only root nodes.
   /// {@endtemplate}
-  @override
   void collapseAll() {
-    final List<T> previouslyVisibleItems = [
-      for (final TreeNode<T> node in _nodes)
-        if (!node.isRoot) node.item,
-    ];
-
     final List<TreeNode<T>> tree = <TreeNode<T>>[];
 
     final List<T> rootItems = delegate.rootItems;
@@ -362,14 +296,7 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
       delegate.traverse(
         item: rootItem,
         shouldContinue: (_) => true,
-        onTraverse: (T item) {
-          if (delegate.getExpansionState(item)) {
-            delegate.setExpansionState(item, false);
-          }
-          if (previouslyVisibleItems.remove(item)) {
-            _markIsCollapsing(keyFactory(item));
-          }
-        },
+        onTraverse: (T item) => delegate.setExpansionState(item, false),
       );
 
       final TreeNode<T> node = MutableTreeNode<T>(
@@ -386,10 +313,20 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
       tree.add(node);
     }
 
-    // Make sure all nodes got their animations
-    setState(() {});
+    setState(_concealNodes);
+    startConcealAnimation(() => setState(() => _nodes = FlatTree<T>(tree)));
+  }
 
-    startCollapseAnimation(() => setState(() => _nodes = FlatTree<T>(tree)));
+  void _concealNodes([Iterable<TreeNode<T>>? branch]) {
+    branch ??= _nodes;
+
+    for (final TreeNode<T> node in branch) {
+      if (node.isRoot) {
+        // Root nodes should not animate.
+        continue;
+      }
+      _markIsConcealing(node.key);
+    }
   }
 
   @protected
@@ -401,7 +338,7 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
       required List<T> items,
       required int level,
       required MutableTreeNode<T>? parent,
-      required bool itemsShouldAnimate,
+      required bool itemsAreBeingRevealed,
     }) {
       final int lastIndex = items.length - 1;
 
@@ -409,8 +346,8 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
         final T item = items[index];
         final Key itemKey = keyFactory(item);
 
-        if (itemsShouldAnimate) {
-          _markIsExpanding(itemKey);
+        if (itemsAreBeingRevealed) {
+          _markIsRevealing(itemKey);
         }
 
         final bool isCollapsed = !delegate.getExpansionState(item);
@@ -419,7 +356,7 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
           delegate.setExpansionState(item, true);
 
           // This item was collapsed so descendants must animate in
-          itemsShouldAnimate = true;
+          itemsAreBeingRevealed = true;
         }
 
         final MutableTreeNode<T> node = MutableTreeNode<T>(
@@ -443,7 +380,7 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
             items: children,
             level: level + 1,
             parent: node,
-            itemsShouldAnimate: itemsShouldAnimate,
+            itemsAreBeingRevealed: itemsAreBeingRevealed,
           );
         }
       }
@@ -453,7 +390,7 @@ mixin TreeControllerStateMixin<T, S extends StatefulWidget>
       items: delegate.rootItems,
       level: 0,
       parent: null,
-      itemsShouldAnimate: false,
+      itemsAreBeingRevealed: false,
     );
 
     return tree;
