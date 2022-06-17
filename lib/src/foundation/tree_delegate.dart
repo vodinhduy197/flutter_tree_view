@@ -1,23 +1,26 @@
 import 'dart:collection' show DoubleLinkedQueue;
 
+import 'package:flutter/foundation.dart' show Key, ValueKey;
+
 /// Callback definition used by [TreeDelegate.fromHandlers] to find the roots of
 /// the tree.
 typedef RootsFinder<T> = List<T> Function();
 
-/// Callback definition used by [TreeDelegate.fromHandlers] to find the children
-/// of [item].
-typedef ChildrenFinder<T> = List<T> Function(T item);
-
-/// Callback definition used by [TreeDelegate.fromHandlers] to get some state
-/// from the provided [item].
-typedef TreeItemStateGetter<T> = bool Function(T item);
-
-/// Callback definition used by [TreeDelegate.fromHandlers] to set [state] for
+/// Callback definition used by [TreeDelegate.fromHandlers] to get a value for
 /// the provided [item].
-typedef TreeItemStateSetter<T> = void Function(T item, bool state);
+typedef TreeItemValueGetter<T, V> = V Function(T item);
+
+/// Callback definition used by [TreeDelegate.fromHandlers] to set a value for
+/// the provided [item].
+typedef TreeItemValueSetter<T, V> = void Function(T item, V value);
 
 /// Callback definition used to act on an item during tree traversal.
 typedef OnTraverse<T> = void Function(T item);
+
+/// Signature for a function that takes a tree item and returns a [Key].
+///
+/// Used by [TreeDelegate.fromHandlers] to get a [Key] for the provided [item].
+typedef KeyGetter<T> = Key Function(T item);
 
 /// An interface for handling the state of the items that compose the tree.
 ///
@@ -26,9 +29,9 @@ typedef OnTraverse<T> = void Function(T item);
 /// This method is going to be called very frequently during tree flattening,
 /// consider caching the results.
 ///
-/// By default selection is disabled, therefore [TreeDelegate.getSelectedState]
-/// always returns false and [TreeDelegate.setSelectedState] has an empty body.
-/// Subclasses should override these methods to enable selection.
+/// By default selection is disabled, therefore [TreeDelegate.getSelection]
+/// always returns false and [TreeDelegate.setSelection] has an empty body.
+/// Subclasses should override both methods to enable selection.
 ///
 /// See also:
 ///
@@ -45,6 +48,7 @@ abstract class TreeDelegate<T> {
   ///
   /// ```dart
   /// class Item {
+  ///   final Key key = UniqueKey();
   ///   List<Item> children = <Item>[];
   ///   bool isExpanded = false;
   ///   bool isSelected = false;
@@ -55,23 +59,27 @@ abstract class TreeDelegate<T> {
   /// final TreeDelegate<Item> delegate = TreeDelegate<Item>.fromHandlers(
   ///   findRootItems: () => rootItems,
   ///   findChildren: (Item item) => item.children,
-  ///   getExpansionState: (Item item) => item.isExpanded,
-  ///   getSelectionState: (Item item) => item.isSelected,
-  ///   setExpansionState: (Item item, bool expanded) {
+  ///   getKey: (Item item) => item.key,
+  ///   getExpansion: (Item item) => item.isExpanded,
+  ///   setExpansion: (Item item, bool expanded) {
   ///     item.isExpanded = expanded;
   ///   },
-  ///   setSelectionState: (Item item, bool selected) {
+  ///   getSelection: (Item item) => item.isSelected,
+  ///   setSelection: (Item item, bool selected) {
   ///     item.isSelected = selected
   ///   },
   /// );
   /// ```
+  ///
+  /// If not provided, [getKey] defaults to [ValueKey<T>.new].
   const factory TreeDelegate.fromHandlers({
     required RootsFinder<T> findRootItems,
-    required ChildrenFinder<T> findChildren,
-    required TreeItemStateGetter<T> getExpansionState,
-    required TreeItemStateSetter<T> setExpansionState,
-    TreeItemStateGetter<T>? getSelectionState,
-    TreeItemStateSetter<T>? setSelectionState,
+    required TreeItemValueGetter<T, List<T>> findChildren,
+    required TreeItemValueGetter<T, bool> getExpansion,
+    required TreeItemValueSetter<T, bool> setExpansion,
+    KeyGetter<T>? getKey,
+    TreeItemValueGetter<T, bool>? getSelection,
+    TreeItemValueSetter<T, bool>? setSelection,
   }) = _TreeDelegateFromHandlers<T>;
 
   /// The items that occupy the level 0 of the tree.
@@ -86,6 +94,14 @@ abstract class TreeDelegate<T> {
   /// consider caching the results.
   List<T> findChildren(T item);
 
+  /// A helper method to get a [Key] for [item].
+  ///
+  /// Make sure the key provided for an item is always the same and unique
+  /// among other keys, otherwise it could lead to inconsistent tree state.
+  ///
+  /// Defaults to creating a new [ValueKey] for the provided item.
+  Key getKey(T item) => ValueKey<T>(item);
+
   /// Convenient method to get the current expansion state of [item].
   ///
   /// This method must return `true` if the children of [item] should be
@@ -98,15 +114,15 @@ abstract class TreeDelegate<T> {
   ///   bool isExpanded = false;
   /// }
   ///
-  /// bool getExpansionState(Item item) => item.isExpanded;
+  /// bool getExpansion(Item item) => item.isExpanded;
   ///
   /// // Or
   ///
   /// final Map<int, bool> expansionCache = <int, bool>{};
   ///
-  /// bool getExpansionState(int itemId) => expansionCache[itemId] ?? false;
+  /// bool getExpansion(int itemId) => expansionCache[itemId] ?? false;
   /// ```
-  bool getExpansionState(T item);
+  bool getExpansion(T item);
 
   /// Convenient method used by [TreeController] to update the expansion state
   /// of [item].
@@ -120,7 +136,7 @@ abstract class TreeDelegate<T> {
   ///   bool isExpanded = false;
   /// }
   ///
-  /// void setExpansionState(Item item, bool expanded) {
+  /// void setExpansion(Item item, bool expanded) {
   ///   item.isExpanded = expanded;
   /// }
   ///
@@ -128,7 +144,7 @@ abstract class TreeDelegate<T> {
   ///
   /// final Map<int, bool> expansionCache = <int, bool>{};
   ///
-  /// void setExpansionState(int itemId, bool expanded) {
+  /// void setExpansion(int itemId, bool expanded) {
   ///   if (expanded) {
   ///     expansionCache[itemId] = true;
   ///   } else {
@@ -136,7 +152,7 @@ abstract class TreeDelegate<T> {
   ///   }
   /// }
   /// ```
-  void setExpansionState(T item, bool expanded);
+  void setExpansion(T item, bool expanded);
 
   /// Convenient method to get the current selection state of [item].
   ///
@@ -150,17 +166,17 @@ abstract class TreeDelegate<T> {
   ///   bool isSelected = false;
   /// }
   ///
-  /// bool getSelectedState(Item item) => item.isSelected;
+  /// bool getSelected(Item item) => item.isSelected;
   ///
   /// // Or
   ///
   /// final Map<int, bool> selectionCache = <int, bool>{};
   ///
-  /// bool getSelectedState(int itemId) => selectionCache[itemId] ?? false;
+  /// bool getSelected(int itemId) => selectionCache[itemId] ?? false;
   /// ```
   ///
   /// The implementation is optional. By default it always returns `false`.
-  bool getSelectionState(T item) => false;
+  bool getSelection(T item) => false;
 
   /// Convenient method used by [TreeController] to update the selection state
   /// of [item].
@@ -174,15 +190,15 @@ abstract class TreeDelegate<T> {
   ///   bool isSelected = false;
   /// }
   ///
-  /// void setSelectedState(Item item, bool selected) {
-  ///   item.isExpanded = expanded;
+  /// void setSelected(Item item, bool selected) {
+  ///   item.isSelected = selected;
   /// }
   ///
   /// // Or
   ///
   /// final Map<int, bool> selectionCache = <int, bool>{};
   ///
-  /// void setSelectionState(int itemId, bool selected) {
+  /// void setSelection(int itemId, bool selected) {
   ///   if (selected) {
   ///     selectionCache[itemId] = true;
   ///   } else {
@@ -192,7 +208,7 @@ abstract class TreeDelegate<T> {
   /// ```
   ///
   /// The implementation is optional. It has an empty body by default.
-  void setSelectionState(T item, bool selected) {}
+  void setSelection(T item, bool selected) {}
 
   /// Traverses [item]'s branch in depth first order.
   ///
@@ -218,7 +234,7 @@ abstract class TreeDelegate<T> {
   /// visited item.
   void traverse({
     required T item,
-    required TreeItemStateGetter<T> shouldContinue,
+    required TreeItemValueGetter<T, bool> shouldContinue,
     OnTraverse<T>? onTraverse,
   }) {
     onTraverse?.call(item);
@@ -265,7 +281,7 @@ abstract class TreeDelegate<T> {
   ///   * [TreeDelegate.traverse] which traverses the branch of the provided
   ///     item in depth first order.
   T? breadthFirstSearch({
-    required TreeItemStateGetter<T> returningCondition,
+    required TreeItemValueGetter<T, bool> returningCondition,
     OnTraverse<T>? onTraverse,
   }) {
     final DoubleLinkedQueue<T> queue = DoubleLinkedQueue<T>.of(rootItems);
@@ -289,24 +305,27 @@ abstract class TreeDelegate<T> {
 class _TreeDelegateFromHandlers<T> extends TreeDelegate<T> {
   const _TreeDelegateFromHandlers({
     required RootsFinder<T> findRootItems,
-    required ChildrenFinder<T> findChildren,
-    required TreeItemStateGetter<T> getExpansionState,
-    required TreeItemStateSetter<T> setExpansionState,
-    TreeItemStateGetter<T>? getSelectionState,
-    TreeItemStateSetter<T>? setSelectionState,
+    required TreeItemValueGetter<T, List<T>> findChildren,
+    required TreeItemValueGetter<T, bool> getExpansion,
+    required TreeItemValueSetter<T, bool> setExpansion,
+    KeyGetter<T>? getKey,
+    TreeItemValueGetter<T, bool>? getSelection,
+    TreeItemValueSetter<T, bool>? setSelection,
   })  : _rootItemsFinder = findRootItems,
         _childrenFinder = findChildren,
-        _expansionGetter = getExpansionState,
-        _expansionSetter = setExpansionState,
-        _selectionGetter = getSelectionState,
-        _selectionSetter = setSelectionState;
+        _expansionGetter = getExpansion,
+        _expansionSetter = setExpansion,
+        _keyGetter = getKey ?? ValueKey<T>.new,
+        _selectionGetter = getSelection,
+        _selectionSetter = setSelection;
 
   final RootsFinder<T> _rootItemsFinder;
-  final ChildrenFinder<T> _childrenFinder;
-  final TreeItemStateGetter<T> _expansionGetter;
-  final TreeItemStateSetter<T> _expansionSetter;
-  final TreeItemStateGetter<T>? _selectionGetter;
-  final TreeItemStateSetter<T>? _selectionSetter;
+  final TreeItemValueGetter<T, List<T>> _childrenFinder;
+  final TreeItemValueGetter<T, bool> _expansionGetter;
+  final TreeItemValueSetter<T, bool> _expansionSetter;
+  final KeyGetter<T> _keyGetter;
+  final TreeItemValueGetter<T, bool>? _selectionGetter;
+  final TreeItemValueSetter<T, bool>? _selectionSetter;
 
   @override
   List<T> get rootItems => _rootItemsFinder();
@@ -315,18 +334,21 @@ class _TreeDelegateFromHandlers<T> extends TreeDelegate<T> {
   List<T> findChildren(T item) => _childrenFinder(item);
 
   @override
-  bool getExpansionState(T item) => _expansionGetter(item);
+  Key getKey(T item) => _keyGetter(item);
 
   @override
-  void setExpansionState(T item, bool expanded) {
+  bool getExpansion(T item) => _expansionGetter(item);
+
+  @override
+  void setExpansion(T item, bool expanded) {
     _expansionSetter(item, expanded);
   }
 
   @override
-  bool getSelectionState(T item) => _selectionGetter?.call(item) ?? false;
+  bool getSelection(T item) => _selectionGetter?.call(item) ?? false;
 
   @override
-  void setSelectionState(T item, bool selected) {
+  void setSelection(T item, bool selected) {
     _selectionSetter?.call(item, selected);
   }
 }

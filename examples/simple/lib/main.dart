@@ -57,9 +57,10 @@ class _CustomTreeViewState extends State<CustomTreeView> {
       children: [
         Item(
           label: 'Item 2.A',
-          children: [
-            Item(label: 'Item 2.A.1'),
-          ],
+          children: List<Item>.generate(
+            20,
+            (int index) => Item(label: 'Item 2.A.${index + 1}'),
+          ),
         ),
       ],
     ),
@@ -74,10 +75,9 @@ class _CustomTreeViewState extends State<CustomTreeView> {
     _treeDelegate = TreeDelegate<Item>.fromHandlers(
       findRootItems: () => roots,
       findChildren: (Item item) => item.children,
-      getExpansionState: (Item item) => item.isExpanded,
-      setExpansionState: (Item item, bool expanded) {
-        item.isExpanded = expanded;
-      },
+      getKey: (Item item) => item.key,
+      getExpansion: (Item item) => item.isExpanded,
+      setExpansion: (Item item, bool expanded) => item.isExpanded = expanded,
     );
   }
 
@@ -85,7 +85,6 @@ class _CustomTreeViewState extends State<CustomTreeView> {
   Widget build(BuildContext context) {
     return TreeView<Item>(
       delegate: _treeDelegate,
-      keyFactory: (Item item) => item.key,
       builder: (BuildContext context, TreeNode<Item> node) {
         final String label = node.item.label;
         final int childCount = node.item.children.length;
@@ -93,7 +92,7 @@ class _CustomTreeViewState extends State<CustomTreeView> {
         return TreeTile<Item>(
           node: node,
           guide: const IndentGuide.connectingLines(indent: 24, thickness: 1),
-          onTap: () => SliverTree.of(context).toggle(node),
+          onTap: () => SliverTree.of<Item>(context).toggle(node),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: SizedBox(
