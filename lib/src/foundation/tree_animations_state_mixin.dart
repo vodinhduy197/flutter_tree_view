@@ -3,21 +3,15 @@ import 'package:flutter/widgets.dart';
 /// The default transition builder used by the tree view to animate the
 /// expansion state changes of a node.
 ///
-/// This function applies a [Curves.decelerate] to [animation] and uses it to
-/// wrap [child] with fade and size transitions.
+/// Wraps [child] in [FadeTransition] and [SizeTransition].
 Widget defaultTreeTransitionBuilder(
   Widget child,
   Animation<double> animation,
 ) {
-  final Animation<double> sizeAnimation = CurvedAnimation(
-    curve: Curves.decelerate,
-    parent: animation,
-  );
-
   return FadeTransition(
-    opacity: Tween(begin: 0.5, end: 1.0).animate(animation),
+    opacity: animation,
     child: SizeTransition(
-      sizeFactor: sizeAnimation,
+      sizeFactor: animation,
       child: child,
     ),
   );
@@ -30,17 +24,34 @@ mixin TreeAnimationsStateMixin<S extends StatefulWidget>
   late final AnimationController _revealAnimationController;
   late final AnimationController _concealAnimationController;
 
-  /// The animation played when a node is expanded.
-  Animation<double> get revealAnimation => _revealAnimationController.view;
+  late Animation<double> _revealAnimation;
+  late Animation<double> _concealAnimation;
 
-  /// The animation played when a node is collapsed.
-  Animation<double> get concealAnimation => _concealAnimationController.view;
+  /// The animation played for the descendants of a node when it is expanded.
+  Animation<double> get revealAnimation => _revealAnimation;
 
-  /// The duration in which to play [revealAnimation].
+  /// The animation played for the descendants of a node when it is collapsed.
+  Animation<double> get concealAnimation => _concealAnimation;
+
+  /// The duration used by [revealAnimation].
+  ///
+  /// Defaults to `Duration(milliseconds: 300)`.
   Duration get revealDuration => const Duration(milliseconds: 300);
 
-  /// The duration in which to play [concealAnimation].
-  Duration get concealDuration => const Duration(milliseconds: 150);
+  /// The [Curve] used by [revealAnimation].
+  ///
+  /// Defaults to `Curves.decelerate`.
+  Curve get revealCurve => Curves.decelerate;
+
+  /// The duration used by [concealAnimation].
+  ///
+  /// Defaults to [revealDuration] which defaults to `Duration(milliseconds: 300)`.
+  Duration get concealDuration => revealDuration;
+
+  /// The [Curve] used by [concealAnimation].
+  ///
+  /// Defaults to `Curves.ease`.
+  Curve get concealCurve => Curves.ease;
 
   /// Starts animating the [revealAnimation].
   @protected
@@ -57,6 +68,16 @@ mixin TreeAnimationsStateMixin<S extends StatefulWidget>
         .whenCompleteOrCancel(whenComplete);
   }
 
+  void _setupAnimations() {
+    _revealAnimation = CurveTween(
+      curve: revealCurve,
+    ).animate(_revealAnimationController);
+
+    _concealAnimation = CurveTween(
+      curve: concealCurve,
+    ).animate(_concealAnimationController);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -69,6 +90,16 @@ mixin TreeAnimationsStateMixin<S extends StatefulWidget>
       vsync: this,
       duration: concealDuration,
     );
+
+    _setupAnimations();
+  }
+
+  @override
+  void didUpdateWidget(covariant S oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _revealAnimationController.duration = revealDuration;
+    _concealAnimationController.duration = concealDuration;
+    _setupAnimations();
   }
 
   @override
