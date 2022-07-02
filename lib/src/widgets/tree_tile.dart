@@ -13,7 +13,7 @@ import 'tree_indentation.dart';
 /// Examples:
 ///
 /// ```dart
-/// TreeTile(
+/// TreeTile<T>(
 ///   node: node,
 ///   child: Row(
 ///     children: [
@@ -22,7 +22,7 @@ import 'tree_indentation.dart';
 ///       ),
 ///       ExpandIcon(
 ///         isExpanded: node.isExpanded,
-///         onPressed: (_) => treeController.toggleItemExpansion(node.item),
+///         onPressed: (_) => SliverTree.of<T>(context).toggle(node.item),
 ///       ),
 ///     ],
 ///   ),
@@ -32,9 +32,9 @@ import 'tree_indentation.dart';
 /// Or whithout a button, using `onTap`:
 ///
 /// ```dart
-/// TreeTile(
+/// TreeTile<T>(
 ///   node: node,
-///   onTap: () => treeController.toggleItemExpansion(node.item),
+///   onTap: () => SliverTree.of<T>(context).toggle(node.item),
 ///   child: const Text('My node Title'),
 /// );
 /// ```

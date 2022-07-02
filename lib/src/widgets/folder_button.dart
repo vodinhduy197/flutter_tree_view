@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
-/// A simple widget that displays open/closed folder icons depending on the
-/// [isOpen] flag.
+/// A simple widget that animates between open/closed folder icons depending on
+/// the [isOpen] flag.
 class FolderButton extends StatelessWidget {
   /// Creates a [FolderButton].
   const FolderButton({
     super.key,
     required this.isOpen,
-    this.openedIcon = const Icon(Icons.folder_open_rounded),
-    this.closedIcon = const Icon(Icons.folder_rounded),
+    this.openedIcon = const Icon(Icons.folder_open),
+    this.closedIcon = const Icon(Icons.folder),
     this.padding = const EdgeInsets.all(8.0),
     this.color,
     this.iconSize,
@@ -19,12 +19,12 @@ class FolderButton extends StatelessWidget {
 
   /// The icon shown when [isOpen] is set to `true`.
   ///
-  /// Defaults to `const Icon(Icons.folder_open_rounded)`.
+  /// Defaults to `const Icon(Icons.folder_open)`.
   final Widget openedIcon;
 
   /// The icon shown when [isOpen] is set to `false`.
   ///
-  /// Defaults to `const Icon(Icons.folder_rounded)`.
+  /// Defaults to `const Icon(Icons.folder)`.
   final Widget closedIcon;
 
   /// Whether the icon shown is open or closed.
@@ -43,7 +43,7 @@ class FolderButton extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   /// The color to use for the icon inside the button, if the icon is enabled.
-  /// Defaults to leaving this up to the [icon] widget.
+  /// Defaults to leaving this up to the icon widget.
   ///
   /// The icon is enabled if [onPressed] is not null.
   ///
