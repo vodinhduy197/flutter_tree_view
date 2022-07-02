@@ -1,53 +1,32 @@
-import 'dart:collection' show UnmodifiableListView;
-
-import 'package:flutter/foundation.dart' show Key;
-
-/// Simple typedef for an unmodifiable list of [TreeNode<T>].
-typedef FlatTree<T> = UnmodifiableListView<TreeNode<T>>;
-
-/// A simple interface for storing useful information about the current state of
-/// [item] in the tree.
+/// The object that represents a node on a tree.
+/// Used to store useful information about [item] in the current tree.
 ///
-/// Instances of [TreeNode]s are created internally by the [TreeController]
-/// while flattening the tree.
+/// Instances of [TreeNode]s are created internally while flattening the tree.
 ///
 /// The [TreeNode]s are short lived, each time the flat tree is rebuilt,
 /// a new [TreeNode] is assigned for [item], so its data is never outdated.
-abstract class TreeNode<T> {
-  /// Defines the constructor configuration for subclasses to implement.
-  const TreeNode({
-    required this.key,
+class TreeNode<T> {
+  /// Creates a [TreeNode].
+  TreeNode({
+    required this.id,
     required this.item,
-    required this.isExpanded,
-    required this.localIndex,
-    required this.globalIndex,
+    required this.index,
     required this.level,
+    required this.isExpanded,
     required this.hasNextSibling,
     this.parent,
   }) : assert(level >= 0);
 
-  /// The direct children of this node in the current flat tree.
-  FlatTree<T> get children;
-
-  /// Used by [ConnectingLineGuide] to determine where to place the straight
-  /// lines based on the path from the root node to this node.
+  /// An id bound to [item].
   ///
-  /// Returns a list containing all levels that **should** have a line drawn.
-  List<int> get levelsWithLineGuides;
-
-  /// A key bound to [item].
-  ///
-  /// Used to find the correct instance of [TreeNode] for a given item.
-  final Key key;
+  /// Used as a key in maps to cache values for [item].
+  final String id;
 
   /// The item attached to this node.
   final T item;
 
-  /// The current index of this node among its siblings (parent's children).
-  final int localIndex;
-
   /// The current index of this node in the flat tree.
-  final int globalIndex;
+  final int index;
 
   /// The level of this node on the tree.
   ///
@@ -64,110 +43,70 @@ abstract class TreeNode<T> {
   /// ```
   final int level;
 
+  /// Whether this node is currently expanded.
+  ///
+  /// If `true`, the children of this node are currently visible on the tree.
+  final bool isExpanded;
+
   /// Whether this node has another node after it at the same level.
   final bool hasNextSibling;
 
   /// The direct parent of this node on the tree.
   final TreeNode<T>? parent;
 
-  /// Whether this node is currently expanded.
-  ///
-  /// If `true`, the children of this node are currently visible on the tree.
-  final bool isExpanded;
-
-  /// Returns `true` if [TreeNode.children] is not empty, `false` otherwise.
-  bool get hasChildren => children.isNotEmpty;
-
   /// Simple getter to check if `parent == null`.
   bool get isRoot => parent == null;
 
-  /// Returns `true` if [node] is present in the path from the root node to
-  /// this node.
+  /// Returns `true` if [ancestor] is present in the path from the root item to
+  /// [item].
   ///
   /// This method can be used to forbid paradoxes when reordering.
-  bool checkHasAncestor(TreeNode<T> node) {
-    return this == node || (parent?.checkHasAncestor(node) ?? false);
+  bool checkHasAncestor(T ancestor) {
+    assert(ancestor != null);
+
+    if (ancestor == item || parent == null) {
+      return false;
+    }
+
+    bool foundAncestor = false;
+    TreeNode<T>? current = parent;
+
+    while (!(foundAncestor || current == null)) {
+      foundAncestor = current.item == ancestor;
+      current = current.parent;
+    }
+
+    return foundAncestor;
   }
 
-  /// Returns all ancestor nodes from the root to `this`, inclusive.
+  /// Used by [ConnectingLineGuide] to determine where to place the vertical
+  /// lines based on the path from the root node to this node.
   ///
-  /// Exemple: `[root, ..., parent, this]`.
-  List<TreeNode<T>> get path => [...?parent?.path, this];
-
-  /// Creates an [Iterable] of all [TreeNode]s under this in depth first order.
-  Iterable<TreeNode<T>> get descendants sync* {
-    for (final TreeNode<T> child in children) {
-      yield child;
-      yield* child.descendants;
-    }
+  /// Returns a list containing the levels of all nodes in the path from the
+  /// root to this node that should draw a vertical line.
+  Set<int> get levelsWithLineGuides {
+    return _levelsWithLineGuidesCache ??= _findLevelsThatNeedLineGuides();
   }
 
-  /// Same as [descendants], the difference is that [branch] includes the node
-  /// being called (i.e [this]).
-  Iterable<TreeNode<T>> get branch sync* {
-    yield this;
-    for (final TreeNode<T> child in children) {
-      yield* child.branch;
-    }
+  Set<int>? _levelsWithLineGuidesCache;
+
+  Set<int> _findLevelsThatNeedLineGuides() {
+    return <int>{
+      ...?parent?.levelsWithLineGuides,
+      if (hasNextSibling) level,
+    };
   }
 
   @override
   String toString() {
     return 'TreeNode<$T>('
+        'id: $id, '
         'item: $item, '
-        'isExpanded: $isExpanded'
-        'localIndex: $localIndex, '
-        'globalIndex: $globalIndex, '
+        'index: $index, '
         'level: $level, '
+        'isExpanded: $isExpanded'
         'hasNextSibling: $hasNextSibling, '
         'parent: $parent'
         ')';
-  }
-}
-
-/// An implementation of [TreeNode] that allows the [TreeController] to set some
-/// protected properties.
-///
-/// Instances of [TreeNode]s are created internally by the [TreeController]
-/// while flattening the tree.
-///
-/// The only purpose of this class is to be used by [TreeController] to cache
-/// some values and setup the flat tree when rebuilding.
-class MutableTreeNode<T> extends TreeNode<T> {
-  /// Creates a [MutableTreeNode].
-  MutableTreeNode({
-    required super.key,
-    required super.item,
-    required super.isExpanded,
-    required super.localIndex,
-    required super.globalIndex,
-    required super.level,
-    required super.hasNextSibling,
-    super.parent,
-  }) : _children = <TreeNode<T>>[];
-
-  @override
-  FlatTree<T> get children => FlatTree<T>(_children);
-  final List<TreeNode<T>> _children;
-
-  /// Used by [TreeController] to inject the children of this node.
-  void addChild(TreeNode<T> child) {
-    assert(child.parent == this);
-    assert(child.localIndex == _children.length);
-    _children.add(child);
-  }
-
-  @override
-  List<int> get levelsWithLineGuides {
-    return _levelsWithLineGuidesCache ??= _findLevelsThatNeedLineGuides();
-  }
-
-  List<int>? _levelsWithLineGuidesCache;
-
-  List<int> _findLevelsThatNeedLineGuides() {
-    return [
-      ...?parent?.levelsWithLineGuides,
-      if (hasNextSibling) level,
-    ];
   }
 }

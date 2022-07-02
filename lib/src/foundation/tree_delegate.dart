@@ -1,44 +1,37 @@
 import 'dart:collection' show DoubleLinkedQueue;
 
-import 'package:flutter/foundation.dart' show Key, ValueKey;
+/// Signature of a function used by [TreeDelegate.fromHandlers] to get the root
+/// items of the tree.
+typedef TreeRootItemsGetter<T> = List<T> Function();
 
-/// Callback definition used by [TreeDelegate.fromHandlers] to find the roots of
-/// the tree.
-typedef RootsFinder<T> = List<T> Function();
-
-/// Callback definition used by [TreeDelegate.fromHandlers] to get a value for
-/// the provided [item].
+/// Signature of a function used by [TreeDelegate.fromHandlers] to get a value
+/// for the provided [item].
 typedef TreeItemValueGetter<T, V> = V Function(T item);
 
-/// Callback definition used by [TreeDelegate.fromHandlers] to set a value for
-/// the provided [item].
+/// Signature of a function used by [TreeDelegate.fromHandlers] to set a value
+/// for the provided [item].
 typedef TreeItemValueSetter<T, V> = void Function(T item, V value);
 
-/// Callback definition used to act on an item during tree traversal.
+/// Signature of a function used to visit [item] during tree traversal.
 typedef OnTraverse<T> = void Function(T item);
 
-/// Signature for a function that takes a tree item and returns a [Key].
-///
-/// Used by [TreeDelegate.fromHandlers] to get a [Key] for the provided [item].
-typedef KeyGetter<T> = Key Function(T item);
+/// Signature of a function used to visit [item] during tree traversal that also
+/// includes its [parent].
+typedef OnTraverseWithParent<T> = void Function(T item, T? parent);
 
 /// An interface for handling the state of the items that compose the tree.
 ///
 /// The delegate will be used to build the tree hierarchy on demand.
 ///
-/// This method is going to be called very frequently during tree flattening,
-/// consider caching the results.
-///
-/// By default selection is disabled, therefore [TreeDelegate.getSelection]
-/// always returns false and [TreeDelegate.setSelection] has an empty body.
-/// Subclasses should override both methods to enable selection.
+/// The methods of this class are going to be called very frequently during tree
+/// flattening and tree operations, consider caching the results if needed.
 ///
 /// See also:
 ///
 ///   * [TreeDelegate.fromHandlers] a convenient factory constructor that takes
 ///     handler callbacks for the different methods of this interface.
 abstract class TreeDelegate<T> {
-  /// Enable subclasses to define constant constructors.
+  /// Enable subclasses to declare constant constructors.
   const TreeDelegate();
 
   /// Convenient factory construtor that takes some handler callbacks to avoid
@@ -48,66 +41,60 @@ abstract class TreeDelegate<T> {
   ///
   /// ```dart
   /// class Item {
-  ///   final Key key = UniqueKey();
+  ///   Item(this.id);
+  ///   final String id;
   ///   List<Item> children = <Item>[];
   ///   bool isExpanded = false;
-  ///   bool isSelected = false;
   /// }
   ///
   /// final List<Item> rootItems = <Item>[Item(), Item()];
   ///
   /// final TreeDelegate<Item> delegate = TreeDelegate<Item>.fromHandlers(
-  ///   findRootItems: () => rootItems,
-  ///   findChildren: (Item item) => item.children,
-  ///   getKey: (Item item) => item.key,
+  ///   getRootItems: () => rootItems,
+  ///   getUniqueId: (Item item) => item.id,
+  ///   getChildren: (Item item) => item.children,
   ///   getExpansion: (Item item) => item.isExpanded,
-  ///   setExpansion: (Item item, bool expanded) {
-  ///     item.isExpanded = expanded;
-  ///   },
-  ///   getSelection: (Item item) => item.isSelected,
-  ///   setSelection: (Item item, bool selected) {
-  ///     item.isSelected = selected
-  ///   },
+  ///   setExpansion: (Item item, bool expanded) => item.isExpanded = expanded},
   /// );
   /// ```
-  ///
-  /// If not provided, [getKey] defaults to [ValueKey<T>.new].
   const factory TreeDelegate.fromHandlers({
-    required RootsFinder<T> findRootItems,
-    required TreeItemValueGetter<T, List<T>> findChildren,
+    required TreeRootItemsGetter<T> getRootItems,
+    required TreeItemValueGetter<T, String> getUniqueId,
+    required TreeItemValueGetter<T, List<T>> getChildren,
     required TreeItemValueGetter<T, bool> getExpansion,
     required TreeItemValueSetter<T, bool> setExpansion,
-    KeyGetter<T>? getKey,
-    TreeItemValueGetter<T, bool>? getSelection,
-    TreeItemValueSetter<T, bool>? setSelection,
   }) = _TreeDelegateFromHandlers<T>;
 
   /// The items that occupy the level 0 of the tree.
   ///
   /// This getter is going to be called each time the tree rebuilds, consider
-  /// caching its content.
+  /// caching its content if needed.
+  ///
+  /// To update the root items of a tree, it's as simple as updating the list
+  /// returned by this getter and calling [SliverTreeState.rebuild].
   List<T> get rootItems;
+
+  /// A helper method to get a unique identifier for [item].
+  ///
+  /// Make sure the id provided for an item is always the same and unique
+  /// among other ids, otherwise it could lead to inconsistent tree state.
+  ///
+  /// A unique identifier is required to enable property caching for [item], for
+  /// example, to cache the animating state of each item during tree flattening.
+  ///
+  /// If using the id of the item as the data provided to the tree, this method
+  /// can be as simple as: `String getUniqueId(String item) => item;`
+  String getUniqueId(T item);
 
   /// Called, as needed when composing the tree, to get the children of [item].
   ///
   /// This method is going to be called very frequently during tree flattening,
   /// consider caching the results.
-  List<T> findChildren(T item);
+  List<T> getChildren(T item);
 
-  /// A helper method to get a [Key] for [item].
+  /// Should return the current expansion state of [item].
   ///
-  /// Make sure the key provided for an item is always the same and unique
-  /// among other keys, otherwise it could lead to inconsistent tree state.
-  ///
-  /// Defaults to creating a new [ValueKey] for the provided item.
-  Key getKey(T item) => ValueKey<T>(item);
-
-  /// Convenient method to get the current expansion state of [item].
-  ///
-  /// This method must return `true` if the children of [item] should be
-  /// displayed on the tree and `false` otherwise.
-  ///
-  /// Usual implementations look something like:
+  /// Usual implementations look something like the following:
   ///
   /// ```dart
   /// class Item {
@@ -118,18 +105,16 @@ abstract class TreeDelegate<T> {
   ///
   /// // Or
   ///
-  /// final Map<int, bool> expansionCache = <int, bool>{};
+  /// final Map<String, bool> expansionCache = <String, bool>{};
   ///
-  /// bool getExpansion(int itemId) => expansionCache[itemId] ?? false;
+  /// bool getExpansion(String itemId) => expansionCache[itemId] ?? false;
   /// ```
   bool getExpansion(T item);
 
-  /// Convenient method used by [TreeController] to update the expansion state
-  /// of [item].
+  /// Should update the expansion state of [item].
+  /// The [expanded] parameter represents the item's **new** state.
   ///
-  /// The [expanded] parameter represents the item's new state.
-  ///
-  /// Usual implementations look something like:
+  /// Usual implementations look something like the following:
   ///
   /// ```dart
   /// class Item {
@@ -142,9 +127,9 @@ abstract class TreeDelegate<T> {
   ///
   /// // Or
   ///
-  /// final Map<int, bool> expansionCache = <int, bool>{};
+  /// final Map<String, bool> expansionCache = <String, bool>{};
   ///
-  /// void setExpansion(int itemId, bool expanded) {
+  /// void setExpansion(String itemId, bool expanded) {
   ///   if (expanded) {
   ///     expansionCache[itemId] = true;
   ///   } else {
@@ -154,108 +139,64 @@ abstract class TreeDelegate<T> {
   /// ```
   void setExpansion(T item, bool expanded);
 
-  /// Convenient method to get the current selection state of [item].
+  /// Traverses the tree in depth first order looking for an item that matches
+  /// the condition provided by [returningCondition] and returns it.
   ///
-  /// This method must return `true` if the [item] is currently selected or
-  /// `false` otherwise.
+  /// If no item matches the [returningCondition], null is returned.
   ///
-  /// Usual implementations look something like:
+  /// If provided, [onTraverse] is going to be called before checking the
+  /// [returningCondition]. Use [onTraverse] to keep track of visited items or
+  /// apply actions on traversal.
   ///
-  /// ```dart
-  /// class Item {
-  ///   bool isSelected = false;
-  /// }
-  ///
-  /// bool getSelected(Item item) => item.isSelected;
-  ///
-  /// // Or
-  ///
-  /// final Map<int, bool> selectionCache = <int, bool>{};
-  ///
-  /// bool getSelected(int itemId) => selectionCache[itemId] ?? false;
-  /// ```
-  ///
-  /// The implementation is optional. By default it always returns `false`.
-  bool getSelection(T item) => false;
-
-  /// Convenient method used by [TreeController] to update the selection state
-  /// of [item].
-  ///
-  /// The [selected] parameter represents the item's new state.
-  ///
-  /// Usual implementations look something like:
+  /// Example:
   ///
   /// ```dart
   /// class Item {
-  ///   bool isSelected = false;
+  ///   String label = 'Foo';
   /// }
   ///
-  /// void setSelected(Item item, bool selected) {
-  ///   item.isSelected = selected;
-  /// }
+  /// int visitedItemCount = 0;
   ///
-  /// // Or
-  ///
-  /// final Map<int, bool> selectionCache = <int, bool>{};
-  ///
-  /// void setSelection(int itemId, bool selected) {
-  ///   if (selected) {
-  ///     selectionCache[itemId] = true;
-  ///   } else {
-  ///     selectionCache.remove(itemId);
-  ///   }
-  /// }
-  /// ```
-  ///
-  /// The implementation is optional. It has an empty body by default.
-  void setSelection(T item, bool selected) {}
-
-  /// Traverses [item]'s branch in depth first order.
-  ///
-  /// The [shouldContinue] callback can be used to decide if the recursion
-  /// continues through the children of the current item or if it should be
-  /// skipped. Example:
-  ///
-  /// ```dart
-  /// class Item {
-  ///   bool isExpanded = false;
-  /// }
-  ///
-  /// treeController.traverse(
-  ///   item: item,
-  ///   // Avoid operating on a collapsed branch
-  ///   shouldContinue: (Item item) => item.isExpanded,
-  ///   // Apply an action during traversal
-  ///   onTraverse: (Item item) => reportVisitedItem(item),
+  /// final Item? fooItem = treeDelegate.depthFirstSearch(
+  ///   returningCondition: (Item item) => item.label == 'Foo',
+  ///   onTraverse: (Item item) => visitedItemCount++,
   /// );
   /// ```
   ///
-  /// If provided, [onTraverse] will be called before [shouldContinue] for every
-  /// visited item.
-  void traverse({
-    required T item,
-    required TreeItemValueGetter<T, bool> shouldContinue,
+  /// **Depth-first search** is an algorithm for traversing or searching tree
+  /// data structures. The algorithm starts at the root node(s) and explores
+  /// as far as possible along each branch before backtracking.
+  /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Depth-first_search).
+  ///
+  /// See also:
+  ///
+  ///   * [TreeDelegate.breadthFirstSearch] which does the same thing but in
+  ///     breadth first order.
+  T? depthFirstSearch({
+    required TreeItemValueGetter<T, bool> returningCondition,
     OnTraverse<T>? onTraverse,
   }) {
-    onTraverse?.call(item);
+    final List<T> stack = List<T>.of(rootItems);
 
-    if (shouldContinue(item)) {
-      final List<T> children = findChildren(item);
+    while (stack.isNotEmpty) {
+      final T item = stack.removeAt(0);
 
-      for (final T child in children) {
-        traverse(
-          item: child,
-          shouldContinue: shouldContinue,
-          onTraverse: onTraverse,
-        );
+      onTraverse?.call(item);
+
+      if (returningCondition(item)) {
+        return item;
       }
+
+      stack.insertAll(0, getChildren(item));
     }
+
+    return null;
   }
 
-  /// Traverses the tree looking for an item that matches the condition provided
-  /// by [returningCondition] and returns it.
+  /// Traverses the tree in breadth first order looking for an item that matches
+  /// the condition provided by [returningCondition] and returns it.
   ///
-  /// If no item matches the [returningCondition] null is returned.
+  /// If no item matches the [returningCondition], `null` is returned.
   ///
   /// If provided, [onTraverse] is going to be called before checking the
   /// [returningCondition]. Use [onTraverse] to keep track of visited items or
@@ -276,10 +217,16 @@ abstract class TreeDelegate<T> {
   /// );
   /// ```
   ///
+  /// **Breadth-first search** is an algorithm for searching a tree data structure
+  /// for a node that satisfies a given property. It starts at the tree root and
+  /// explores all nodes at the present depth prior to moving on to the nodes at
+  /// the next depth level.
+  /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Breadth-first_search).
+  ///
   /// See also:
   ///
-  ///   * [TreeDelegate.traverse] which traverses the branch of the provided
-  ///     item in depth first order.
+  ///   * [TreeDelegate.depthFirstSearch] which does the same thing but in depth
+  ///     first order.
   T? breadthFirstSearch({
     required TreeItemValueGetter<T, bool> returningCondition,
     OnTraverse<T>? onTraverse,
@@ -295,7 +242,7 @@ abstract class TreeDelegate<T> {
         return item;
       }
 
-      queue.addAll(findChildren(item));
+      queue.addAll(getChildren(item));
     }
 
     return null;
@@ -304,51 +251,35 @@ abstract class TreeDelegate<T> {
 
 class _TreeDelegateFromHandlers<T> extends TreeDelegate<T> {
   const _TreeDelegateFromHandlers({
-    required RootsFinder<T> findRootItems,
-    required TreeItemValueGetter<T, List<T>> findChildren,
+    required TreeRootItemsGetter<T> getRootItems,
+    required TreeItemValueGetter<T, String> getUniqueId,
+    required TreeItemValueGetter<T, List<T>> getChildren,
     required TreeItemValueGetter<T, bool> getExpansion,
     required TreeItemValueSetter<T, bool> setExpansion,
-    KeyGetter<T>? getKey,
-    TreeItemValueGetter<T, bool>? getSelection,
-    TreeItemValueSetter<T, bool>? setSelection,
-  })  : _rootItemsFinder = findRootItems,
-        _childrenFinder = findChildren,
+  })  : _rootItemsGetter = getRootItems,
+        _uniqueIdGetter = getUniqueId,
+        _childrenGetter = getChildren,
         _expansionGetter = getExpansion,
-        _expansionSetter = setExpansion,
-        _keyGetter = getKey ?? ValueKey<T>.new,
-        _selectionGetter = getSelection,
-        _selectionSetter = setSelection;
+        _expansionSetter = setExpansion;
 
-  final RootsFinder<T> _rootItemsFinder;
-  final TreeItemValueGetter<T, List<T>> _childrenFinder;
+  final TreeRootItemsGetter<T> _rootItemsGetter;
+  final TreeItemValueGetter<T, String> _uniqueIdGetter;
+  final TreeItemValueGetter<T, List<T>> _childrenGetter;
   final TreeItemValueGetter<T, bool> _expansionGetter;
   final TreeItemValueSetter<T, bool> _expansionSetter;
-  final KeyGetter<T> _keyGetter;
-  final TreeItemValueGetter<T, bool>? _selectionGetter;
-  final TreeItemValueSetter<T, bool>? _selectionSetter;
 
   @override
-  List<T> get rootItems => _rootItemsFinder();
+  List<T> get rootItems => _rootItemsGetter();
 
   @override
-  List<T> findChildren(T item) => _childrenFinder(item);
+  String getUniqueId(T item) => _uniqueIdGetter(item);
 
   @override
-  Key getKey(T item) => _keyGetter(item);
+  List<T> getChildren(T item) => _childrenGetter(item);
 
   @override
   bool getExpansion(T item) => _expansionGetter(item);
 
   @override
-  void setExpansion(T item, bool expanded) {
-    _expansionSetter(item, expanded);
-  }
-
-  @override
-  bool getSelection(T item) => _selectionGetter?.call(item) ?? false;
-
-  @override
-  void setSelection(T item, bool selected) {
-    _selectionSetter?.call(item, selected);
-  }
+  void setExpansion(T item, bool expanded) => _expansionSetter(item, expanded);
 }
