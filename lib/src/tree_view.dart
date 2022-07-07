@@ -22,6 +22,7 @@ class TreeView extends StatefulWidget {
     this.shrinkWrap = false,
     this.padding,
     this.scrollController,
+    this.physics,
   }) : super(key: key);
 
   /// The instance of [TreeController] to control nodes from outside of
@@ -89,6 +90,17 @@ class TreeView extends StatefulWidget {
   /// Defaults to `40.0`.
   final double? nodeHeight;
 
+  /// The height each node will take, its more efficient (for the scrolling
+  /// machinery) than letting the nodes determine their own height. (Also used
+  /// by [ScrollController] to determine the offset of a node and scroll to it).
+  ///
+  /// Defaults to `40.0`.
+  
+  ///Creates a scrollable, linear array of widgets with a custom child model.
+  ///For example, a custom child model can control the algorithm used to estimate the size of children that are not actually visible.
+  ///This [ListView] uses a custom [SliverChildBuilderDelegate] to support child reordering.
+  final ScrollPhysics? physics;
+
   /// The [ScrollController] passed to [ListView.controller].
   final ScrollController? scrollController;
 
@@ -150,6 +162,7 @@ class _TreeViewState extends State<TreeView> {
       controller: controller,
       theme: widget.theme,
       child: ListView.custom(
+        physics: widget.physics,
         controller: widget.scrollController,
         padding: widget.padding,
         shrinkWrap: widget.shrinkWrap,
